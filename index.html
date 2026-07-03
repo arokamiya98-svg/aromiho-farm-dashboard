@@ -711,13 +711,18 @@ function addTool(){state.tools.push({name:'新しい道具',cost:0,act:0});rende
 var harvestSync=null,harvestSyncLoaded=false,harvestChart={level:'items',item:null};
 function trim(n){return Math.round((+n||0)*10)/10;}
 function itemName(x){var it=itemById(x);return it?it.name:(x||'');}
-function itemByName(nm){for(var i=0;i<state.items.length;i++)if(state.items[i].name===nm)return state.items[i];return null;}
+/* カナ揺れ吸収：カタカナ→ひらがな＋空白除去（ナス=なす、キュウリ=きゅうり で一致） */
+function kanaKey(s){return String(s||'').replace(/[ァ-ヶ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x60);}).replace(/[\s　]/g,'').toLowerCase();}
+function itemByName(nm){var k=kanaKey(nm);for(var i=0;i<state.items.length;i++)if(kanaKey(state.items[i].name)===k)return state.items[i];return null;}
+function canonItem(nm){var it=itemByName(nm);return it?it.name:(nm||'');} // 表記を品目マスタ名にそろえる
 function itemMeta(nm){var it=itemByName(nm)||itemById(nm);return it?{emo:emo(it.id),color:GROUPS[it.group].color}:{emo:'🌾',color:'#9bb37f'};}
-/* iCloud同期(harvest.json:ショートカット生成)＋手動記録をひとつの配列に */
+/* 重さはkgに正規化（800g→0.8kg／1t→1000kg）。個/本/束などの数え単位はそのまま */
+function normQU(qty,unit){qty=+qty||0;if(unit==='g')return{qty:qty/1000,unit:'kg'};if(unit==='mg')return{qty:qty/1e6,unit:'kg'};if(unit==='t')return{qty:qty*1000,unit:'kg'};return{qty:qty,unit:unit||''};}
+/* iCloud同期(harvest.json:ショートカット生成)＋手動記録をひとつの配列に（カナ・単位を正規化） */
 function allHarvest(){
   var out=[];
-  (harvestSync||[]).forEach(function(r){out.push({kind:r.kind==='plan'?'plan':'done',date:r.date||'',item:r.item||'',qty:+r.qty||0,unit:r.unit||'',note:r.note||'',src:r.source||'iCloud'});});
-  (state.harvests||[]).forEach(function(r){if(!r.item&&!(+r.qty))return;out.push({kind:'done',date:r.date||'',item:itemName(r.item),qty:+r.qty||0,unit:r.unit||'',note:r.note||'',src:'手動'});});
+  (harvestSync||[]).forEach(function(r){var q=normQU(r.qty,r.unit||'');out.push({kind:r.kind==='plan'?'plan':'done',date:r.date||'',item:canonItem(r.item||''),qty:q.qty,unit:q.unit,note:r.note||'',src:r.source||'iCloud'});});
+  (state.harvests||[]).forEach(function(r){if(!r.item&&!(+r.qty))return;var q=normQU(r.qty,r.unit||'');out.push({kind:'done',date:r.date||'',item:canonItem(itemName(r.item)),qty:q.qty,unit:q.unit,note:r.note||'',src:'手動'});});
   return out;
 }
 function harvestAgg(records,kind){ // 品目名でqty合計・代表単位
@@ -754,13 +759,15 @@ function renderHarvestKpi(){
     '<div><b style="font-size:13px">'+esc(fmt(latest))+'</b><span>直近の収穫</span></div>'+
     '<div><b style="font-size:13px">'+esc(fmt(nextPlan))+'</b><span>次の収穫予定</span></div>';
 }
-/* 来週の"穫りごろ"：リマインダー予定(plan・今日〜7日)＋区画で収穫期(s===5)の品目 */
+/* 来週の"穫りごろ"：リマインダー予定(plan・日付なし or 今日〜7日)＋区画で収穫期(s===5)の品目 */
 function renderHarvestTodo(){
   var box=document.getElementById('harvestTodo');if(!box)return;
   var t0=new Date();t0=new Date(t0.getFullYear(),t0.getMonth(),t0.getDate());
   var t0s=t0.toISOString().slice(0,10),t7s=new Date(t0.getTime()+7*864e5).toISOString().slice(0,10);
   var cards=[];
-  (harvestSync||[]).forEach(function(r){if(r.kind==='plan'&&r.date&&r.date>=t0s&&r.date<=t7s)cards.push({ripe:false,item:r.item,date:r.date,qty:r.qty,unit:r.unit});});
+  (harvestSync||[]).forEach(function(r){if(r.kind!=='plan')return; // 日付なしの予定もラフに拾う（あろさんの実運用）
+    if(r.date&&(r.date<t0s||r.date>t7s))return;
+    var q=normQU(r.qty,r.unit||'');cards.push({ripe:false,item:canonItem(r.item||''),date:r.date||'',qty:q.qty,unit:q.unit});});
   var ripe={};
   state.plots.forEach(function(p){ // 区画由来の"収穫期"は、その畑で生育を実際に追い始めた場合だけ（全マス同一ステージ＝初期状態はスキップ）
     var planted=p.cells.filter(function(c){return c&&!SPECIAL[c.t];});if(planted.length<2)return;
@@ -769,9 +776,11 @@ function renderHarvestTodo(){
   });
   Object.keys(ripe).forEach(function(id){var it=itemById(id);cards.push({ripe:true,item:it?it.name:id,area:ripe[id]});});
   if(!cards.length){box.innerHTML='<div class="bar-empty">今週の“穫りごろ”はまだなし。区画で品目を🍅収穫期にするか、リマインダーに収穫予定を入れると、ここにカードで出ます。</div>';return;}
-  cards.sort(function(a,b){if(a.ripe!==b.ripe)return a.ripe?1:-1;return (a.date||'')<(b.date||'')?-1:1;});
+  cards.sort(function(a,b){ // 日付あり予定→日付なし予定→区画そろそろ の順
+    var ra=a.ripe?2:(a.date?0:1),rb=b.ripe?2:(b.date?0:1);if(ra!==rb)return ra-rb;
+    return (a.date||'')<(b.date||'')?-1:1;});
   var h='';cards.forEach(function(c){var mt=itemMeta(c.item);
-    var tag=c.ripe?'🌟 そろそろ':'📅 '+(+c.date.slice(5,7))+'/'+(+c.date.slice(8,10));
+    var tag=c.ripe?'🌟 そろそろ':(c.date?'📅 '+(+c.date.slice(5,7))+'/'+(+c.date.slice(8,10)):'📅 予定');
     var sub=c.ripe?('畑に '+c.area+'㎡ が収穫期'):('目安 '+(c.qty?trim(c.qty)+(c.unit||''):'—'));
     h+='<div class="todo-card'+(c.ripe?' ripe':'')+'"><div class="em">'+mt.emo+'</div><div class="body"><div class="nm">'+esc(c.item)+'</div><div class="sub">'+esc(sub)+'</div></div><div class="tag">'+tag+'</div></div>';
   });
