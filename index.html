@@ -77,6 +77,16 @@ table.data input{border:1px solid var(--line);border-radius:5px;padding:3px 6px;
 table.data input.n{text-align:right}
 table.data select{border:1px solid var(--line);border-radius:5px;padding:3px 4px;font-size:13px;font-family:inherit;width:100%;background:#fff}
 td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
+/* 収穫バーグラフ */
+.bar-row{display:flex;align-items:center;gap:9px;margin:7px 0}
+.bar-row.tap{cursor:pointer}.bar-row.tap:hover .bar-fill{filter:brightness(1.06)}
+.bar-row .lbl{width:104px;flex:none;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--soft);border-radius:7px;height:22px;position:relative;min-width:40px}
+.bar-fill{height:100%;border-radius:7px;background:var(--green);min-width:2px;transition:width .35s ease}
+.bar-plan{position:absolute;top:0;left:0;height:100%;border:1.5px dashed #9a9683;border-radius:7px;box-sizing:border-box;pointer-events:none}
+.bar-val{width:74px;flex:none;text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.bar-empty{color:var(--muted);font-size:12.5px;padding:6px 2px}
+.pva-pct{font-size:10.5px;color:var(--muted);margin-left:2px}
 .chip-g{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .del{color:#b5563f;cursor:pointer;font-size:12px;border:none;background:none}
 .addbtn{margin-top:8px;background:var(--soft);border:1px dashed var(--line);border-radius:7px;
@@ -243,20 +253,31 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <!-- 収穫 -->
   <section id="tab-harvest">
     <div class="card">
-      <h2>収穫ログ</h2>
-      <p class="note">穫れた日・品目・量を1行ずつ記録。区画で「✅収穫済」にしたマスとあわせて、"いつ・何が・どれだけ"穫れたかを貯める。将来この記録×天気で豊作／不作の分析に。</p>
-      <table class="data" id="harvestTbl"></table>
-      <button class="addbtn" onclick="addHarvest()">＋ 収穫を記録</button>
+      <h2>収穫の全体像</h2>
+      <div class="kpi" id="harvestKpi"></div>
+      <p class="note" id="harvestSyncMsg"></p>
     </div>
     <div class="card">
-      <h2>品目ごとの累計</h2>
-      <table class="data" id="harvestSumTbl"></table>
+      <h2 id="harvestChartTitle">品目別の収穫量</h2>
+      <div id="harvestChart"></div>
+      <p class="note"><span id="harvestChartHint">バーをタップ → その品目の<b>月別の推移</b>に切り替わる。</span> <button class="minibtn" id="harvestBackBtn" style="display:none" onclick="harvestChartUp()">← 品目一覧に戻る</button></p>
+    </div>
+    <div class="card">
+      <h2>計画 vs 実績</h2>
+      <p class="note">□＝収穫<b>予定</b>（カレンダー/リマインダー）、■＝<b>実際に穫れた</b>量。予定どおり穫れてるかの目安。</p>
+      <div id="harvestPvA"></div>
     </div>
     <div class="card">
       <h2>区画で「✅収穫済」の面積</h2>
-      <p class="note">区画タブで生育ステージを「✅収穫済」まで進めたマスの集計（1マス=1㎡）。収穫ログの裏づけ・進み具合の目安に。</p>
+      <p class="note">区画タブで生育を「✅収穫済」まで進めたマスの集計（1マス=1㎡）。収穫の裏づけ・進み具合の目安に。</p>
       <table class="data" id="harvestPlotTbl"></table>
     </div>
+    <details class="card">
+      <summary style="cursor:pointer;font-weight:600;color:var(--green-d)">🔧 手動で追加 / データ同期（ふだんは畳んでOK）</summary>
+      <p class="note" style="margin-top:12px">基本は<b>iCloud（カレンダー/リマインダー）で入力→ショートカットで自動同期</b>。ここは同期前の代替や微調整用。<button class="minibtn" onclick="loadHarvestSync(true)">☁️ 今すぐ同期を取り込む</button></p>
+      <table class="data" id="harvestTbl"></table>
+      <button class="addbtn" onclick="addHarvest()">＋ 手動で1件追加</button>
+    </details>
   </section>
 
   <!-- スケジュール -->
@@ -666,45 +687,93 @@ function upTool(i,k,v){state.tools[i][k]=v;save();renderKpi();renderTools();}
 function delTool(i){state.tools.splice(i,1);renderTools();renderKpi();save();}
 function addTool(){state.tools.push({name:'新しい道具',cost:0,act:0});renderTools();save();}
 
-/* ===== 収穫 ===== */
-function itemSelect(sel,idx){
-  var h='<select onchange="upHarvest('+idx+',\'item\',this.value)"><option value=""'+(!sel?' selected':'')+'>—品目—</option>';
-  state.items.forEach(function(it){h+='<option value="'+it.id+'"'+(sel===it.id?' selected':'')+'>'+emo(it.id)+' '+esc(it.name)+'</option>';});
-  return h+'</select>';
+/* ===== 収穫（認知ビジュアル：iCloud同期＝表示専用） ===== */
+var harvestSync=null,harvestSyncLoaded=false,harvestChart={level:'items',item:null};
+function trim(n){return Math.round((+n||0)*10)/10;}
+function itemName(x){var it=itemById(x);return it?it.name:(x||'');}
+function itemByName(nm){for(var i=0;i<state.items.length;i++)if(state.items[i].name===nm)return state.items[i];return null;}
+function itemMeta(nm){var it=itemByName(nm)||itemById(nm);return it?{emo:emo(it.id),color:GROUPS[it.group].color}:{emo:'🌾',color:'#9bb37f'};}
+/* iCloud同期(harvest.json:ショートカット生成)＋手動記録をひとつの配列に */
+function allHarvest(){
+  var out=[];
+  (harvestSync||[]).forEach(function(r){out.push({kind:r.kind==='plan'?'plan':'done',date:r.date||'',item:r.item||'',qty:+r.qty||0,unit:r.unit||'',note:r.note||'',src:r.source||'iCloud'});});
+  (state.harvests||[]).forEach(function(r){if(!r.item&&!(+r.qty))return;out.push({kind:'done',date:r.date||'',item:itemName(r.item),qty:+r.qty||0,unit:r.unit||'',note:r.note||'',src:'手動'});});
+  return out;
 }
-function unitSelect(sel,idx){
-  var h='<select onchange="upHarvest('+idx+',\'unit\',this.value)">';
-  if(sel&&UNITS.indexOf(sel)<0)h+='<option selected>'+esc(sel)+'</option>';
-  UNITS.forEach(function(u){h+='<option'+(sel===u?' selected':'')+'>'+u+'</option>';});
-  return h+'</select>';
+function harvestAgg(records,kind){ // 品目名でqty合計・代表単位
+  var m={};records.forEach(function(r){if(kind&&r.kind!==kind)return;if(!r.item)return;if(!m[r.item])m[r.item]={qty:0,unit:r.unit||'',cnt:0};m[r.item].qty+=r.qty;m[r.item].cnt++;if(!m[r.item].unit)m[r.item].unit=r.unit||'';});
+  return m;
+}
+async function loadHarvestSync(force){
+  if(harvestSyncLoaded&&!force){renderHarvest();return;}
+  harvestSyncLoaded=true;
+  try{var d=await fetchJSON('harvest.json',8000);harvestSync=Array.isArray(d)?d:((d&&d.records)||[]);}
+  catch(e){if(force)alert('同期データ(harvest.json)が見つかりません。ショートカットの設定がまだかも。');/* 静かにフォールバック */}
+  renderHarvest();
 }
 function renderHarvest(){
-  var t=document.getElementById('harvestTbl');if(!t)return;
-  var h='<tr><th>日付</th><th>品目</th><th class="n">量</th><th>単位</th><th>メモ</th><th></th></tr>';
-  if(!state.harvests.length)h+='<tr><td colspan="6" style="color:var(--muted)">まだ記録がありません。「＋ 収穫を記録」から。</td></tr>';
-  state.harvests.forEach(function(r,idx){
-    h+='<tr>'+
-      '<td><input type="date" value="'+esc(r.date||'')+'" onchange="upHarvest('+idx+',\'date\',this.value)"></td>'+
-      '<td>'+itemSelect(r.item,idx)+'</td>'+
-      '<td class="n"><input class="n" type="number" step="0.1" value="'+(+r.qty||0)+'" onchange="upHarvest('+idx+',\'qty\',+this.value)"></td>'+
-      '<td>'+unitSelect(r.unit,idx)+'</td>'+
-      '<td><input value="'+esc(r.note||'')+'" onchange="upHarvest('+idx+',\'note\',this.value)"></td>'+
-      '<td><button class="del" onclick="delHarvest('+idx+')">削除</button></td></tr>';
-  });
-  t.innerHTML=h;
-  renderHarvestSum();renderHarvestPlot();
+  if(!document.getElementById('harvestKpi'))return;
+  renderHarvestKpi();renderHarvestChart();renderHarvestPvA();renderHarvestPlot();renderHarvestTable();
+  var msg=document.getElementById('harvestSyncMsg');
+  if(msg)msg.textContent=harvestSync?('☁️ iCloud同期：'+harvestSync.length+'件 取り込み済み（ショートカット経由）'):'☁️ iCloud同期：まだ。基本はカレンダー/リマインダーで入力→ショートカットで自動反映（下の🔧で今すぐ取込・手動追加も可）';
 }
-function renderHarvestSum(){
-  var t=document.getElementById('harvestSumTbl');if(!t)return;
-  var agg={},cnt={};
-  state.harvests.forEach(function(r){if(!r.item)return;var k=r.item+'|'+(r.unit||'');agg[k]=(agg[k]||0)+(+r.qty||0);cnt[k]=(cnt[k]||0)+1;});
-  var keys=Object.keys(agg).sort();
-  var h='<tr><th>品目</th><th class="n">累計</th><th class="n">記録数</th></tr>';
-  if(!keys.length){h+='<tr><td colspan="3" style="color:var(--muted)">—</td></tr>';}
-  keys.forEach(function(k){var p=k.split('|'),it=itemById(p[0]);
-    h+='<tr><td>'+(it?emo(it.id)+' '+esc(it.name):esc(p[0]))+'</td><td class="n total">'+(Math.round(agg[k]*10)/10)+' '+esc(p[1])+'</td><td class="n">'+cnt[k]+'</td></tr>';
+function renderHarvestKpi(){
+  var recs=allHarvest(),done=recs.filter(function(r){return r.kind==='done';}),plan=recs.filter(function(r){return r.kind==='plan';});
+  var items={};done.forEach(function(r){if(r.item)items[r.item]=1;});
+  var latest=done.filter(function(r){return r.date;}).sort(function(a,b){return a.date<b.date?1:-1;})[0];
+  var today=new Date().toISOString().slice(0,10);
+  var nextPlan=plan.filter(function(r){return r.date&&r.date>=today;}).sort(function(a,b){return a.date<b.date?-1:1;})[0];
+  function md(d){return d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'';}
+  function fmt(r){if(!r)return '—';return md(r.date)+' '+itemMeta(r.item).emo+r.item+(r.qty?(' '+trim(r.qty)+r.unit):'');}
+  document.getElementById('harvestKpi').innerHTML=
+    '<div><b>'+done.length+'</b><span>収穫した回数</span></div>'+
+    '<div><b>'+Object.keys(items).length+'</b><span>穫れた品目数</span></div>'+
+    '<div><b style="font-size:13px">'+esc(fmt(latest))+'</b><span>直近の収穫</span></div>'+
+    '<div><b style="font-size:13px">'+esc(fmt(nextPlan))+'</b><span>次の収穫予定</span></div>';
+}
+function renderHarvestChart(){
+  var box=document.getElementById('harvestChart');if(!box)return;
+  var title=document.getElementById('harvestChartTitle'),back=document.getElementById('harvestBackBtn'),hint=document.getElementById('harvestChartHint');
+  var done=allHarvest().filter(function(r){return r.kind==='done';});
+  if(harvestChart.level==='months'){
+    back.style.display='';hint.style.display='none';
+    var it=harvestChart.item,mt=itemMeta(it);title.textContent=mt.emo+' '+it+'：月別の収穫量';
+    var months=[0,0,0,0,0,0,0,0,0,0,0,0],unit='';
+    done.forEach(function(r){if(r.item!==it||!r.date)return;var m=+r.date.slice(5,7);if(m>=1&&m<=12){months[m-1]+=r.qty;if(!unit)unit=r.unit;}});
+    var max=Math.max.apply(null,months.concat([0.001]));
+    var h='';for(var m=0;m<12;m++){var v=months[m];
+      h+='<div class="bar-row"><div class="lbl">'+(m+1)+'月</div><div class="bar-track"><div class="bar-fill" style="width:'+(v/max*100)+'%;background:'+mt.color+'"></div></div><div class="bar-val">'+(v?trim(v)+esc(unit):'–')+'</div></div>';
+    }
+    box.innerHTML=h;return;
+  }
+  back.style.display='none';hint.style.display='';title.textContent='品目別の収穫量';
+  var agg=harvestAgg(done,'done'),names=Object.keys(agg);
+  if(!names.length){box.innerHTML='<div class="bar-empty">まだ収穫の記録がありません。iCloud（カレンダー/リマインダー）で入力→同期するか、下の🔧から手動で追加すると、ここに品目別バーが出ます。</div>';return;}
+  names.sort(function(a,b){return agg[b].qty-agg[a].qty;});
+  var max=agg[names[0]].qty||0.001,h='';
+  names.forEach(function(nm){var a=agg[nm],mt=itemMeta(nm);
+    h+='<div class="bar-row tap" data-name="'+esc(nm)+'"><div class="lbl">'+mt.emo+' '+esc(nm)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(a.qty/max*100)+'%;background:'+mt.color+'"></div></div><div class="bar-val">'+trim(a.qty)+' '+esc(a.unit)+'</div></div>';
   });
-  t.innerHTML=h;
+  box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll('.bar-row.tap'),function(el){el.onclick=function(){harvestChart={level:'months',item:el.dataset.name};renderHarvestChart();};});
+}
+function harvestChartUp(){harvestChart={level:'items',item:null};renderHarvestChart();}
+function renderHarvestPvA(){
+  var box=document.getElementById('harvestPvA');if(!box)return;
+  var recs=allHarvest(),doneA=harvestAgg(recs,'done'),planA=harvestAgg(recs,'plan'),names={};
+  Object.keys(doneA).forEach(function(n){names[n]=1;});Object.keys(planA).forEach(function(n){names[n]=1;});
+  var list=Object.keys(names);
+  if(!list.length){box.innerHTML='<div class="bar-empty">計画（□）と実績（■）がここに並びます。カレンダーに「収穫予定」を入れ、実際に穫れたら同期すると対比が見えます。</div>';return;}
+  var max=0.001;list.forEach(function(n){max=Math.max(max,doneA[n]?doneA[n].qty:0,planA[n]?planA[n].qty:0);});
+  list.sort(function(a,b){return ((doneA[b]?doneA[b].qty:0)+(planA[b]?planA[b].qty:0))-((doneA[a]?doneA[a].qty:0)+(planA[a]?planA[a].qty:0));});
+  var h='';list.forEach(function(nm){var mt=itemMeta(nm),dv=doneA[nm]?doneA[nm].qty:0,pv=planA[nm]?planA[nm].qty:0,unit=(doneA[nm]&&doneA[nm].unit)||(planA[nm]&&planA[nm].unit)||'';
+    var pct=pv>0?Math.round(dv/pv*100)+'%':'';
+    h+='<div class="bar-row"><div class="lbl">'+mt.emo+' '+esc(nm)+'</div><div class="bar-track">'+
+       (pv>0?'<div class="bar-plan" style="width:'+Math.min(100,pv/max*100)+'%"></div>':'')+
+       '<div class="bar-fill" style="width:'+(dv/max*100)+'%;background:'+mt.color+'"></div></div>'+
+       '<div class="bar-val">'+trim(dv)+(unit?' '+esc(unit):'')+' <span class="pva-pct">'+pct+'</span></div></div>';
+  });
+  box.innerHTML=h;
 }
 function renderHarvestPlot(){
   var t=document.getElementById('harvestPlotTbl');if(!t)return;
@@ -717,8 +786,34 @@ function renderHarvestPlot(){
   if(keys.length)h+='<tr style="border-top:2px solid var(--line)"><td class="total">合計</td><td class="n total">'+total+' ㎡</td></tr>';
   t.innerHTML=h;
 }
+function itemSelect(sel,idx){
+  var h='<select onchange="upHarvest('+idx+',\'item\',this.value)"><option value=""'+(!sel?' selected':'')+'>—品目—</option>';
+  state.items.forEach(function(it){h+='<option value="'+it.id+'"'+(sel===it.id?' selected':'')+'>'+emo(it.id)+' '+esc(it.name)+'</option>';});
+  return h+'</select>';
+}
+function unitSelect(sel,idx){
+  var h='<select onchange="upHarvest('+idx+',\'unit\',this.value)">';
+  if(sel&&UNITS.indexOf(sel)<0)h+='<option selected>'+esc(sel)+'</option>';
+  UNITS.forEach(function(u){h+='<option'+(sel===u?' selected':'')+'>'+u+'</option>';});
+  return h+'</select>';
+}
+function renderHarvestTable(){ // 折りたたみ内の手動記録テーブル
+  var t=document.getElementById('harvestTbl');if(!t)return;
+  var h='<tr><th>日付</th><th>品目</th><th class="n">量</th><th>単位</th><th>メモ</th><th></th></tr>';
+  if(!state.harvests.length)h+='<tr><td colspan="6" style="color:var(--muted)">手動記録なし（基本はiCloud同期でOK）</td></tr>';
+  state.harvests.forEach(function(r,idx){
+    h+='<tr>'+
+      '<td><input type="date" value="'+esc(r.date||'')+'" onchange="upHarvest('+idx+',\'date\',this.value)"></td>'+
+      '<td>'+itemSelect(r.item,idx)+'</td>'+
+      '<td class="n"><input class="n" type="number" step="0.1" value="'+(+r.qty||0)+'" onchange="upHarvest('+idx+',\'qty\',+this.value)"></td>'+
+      '<td>'+unitSelect(r.unit,idx)+'</td>'+
+      '<td><input value="'+esc(r.note||'')+'" onchange="upHarvest('+idx+',\'note\',this.value)"></td>'+
+      '<td><button class="del" onclick="delHarvest('+idx+')">削除</button></td></tr>';
+  });
+  t.innerHTML=h;
+}
 function addHarvest(){state.harvests.push({id:'h'+Date.now(),date:new Date().toISOString().slice(0,10),item:'',qty:0,unit:'kg',note:''});renderHarvest();save();}
-function upHarvest(i,k,v){state.harvests[i][k]=v;save();renderHarvestSum();}
+function upHarvest(i,k,v){state.harvests[i][k]=v;save();renderHarvestKpi();renderHarvestChart();renderHarvestPvA();}
 function delHarvest(i){state.harvests.splice(i,1);renderHarvest();save();}
 
 /* ===== スケジュール ===== */
@@ -750,6 +845,7 @@ function activateTab(name){
   Array.prototype.forEach.call(document.querySelectorAll('main section'),function(x){x.classList.remove('active');});
   var el=document.getElementById('tab-'+name);if(el)el.classList.add('active');
   if(name==='weather')loadWeather(); // 遅延ロード：天気タブを開いた時だけ取得（キャッシュがあれば即描画）
+  if(name==='harvest')loadHarvestSync(); // 収穫タブを開いた時だけiCloud同期(harvest.json)を取り込む
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
   b.onclick=function(){activateTab(b.dataset.tab);location.hash=b.dataset.tab;};
