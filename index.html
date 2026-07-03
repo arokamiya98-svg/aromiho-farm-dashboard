@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>🌾 あろ×みほ 農園ダッシュボード</title>
+<style>
+:root{
+  --bg:#f6f4ec; --panel:#ffffff; --ink:#34332d; --muted:#7c7a6e;
+  --green:#4a7c59; --green-d:#3a6347; --line:#e2ddcd; --soft:#efece1;
+  --c-base:#d9b877; --c-summer:#e08a6f; --c-winter:#8fabd0;
+  --c-leaf:#a3c47f; --c-bean:#cb9a5f; --c-makomo:#6fa3c9;
+  --c-path:#e4dccb; --c-empty:#f4f1e9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+header{background:var(--green);color:#fff;padding:14px 20px;display:flex;
+  align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em}
+header .sub{font-size:12px;opacity:.85}
+header .spacer{flex:1}
+.btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);
+  padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit}
+.btn:hover{background:rgba(255,255,255,.28)}
+nav{display:flex;gap:4px;background:var(--soft);padding:8px 14px 0;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:5;flex-wrap:wrap}
+nav button{background:transparent;border:none;padding:10px 16px;font-size:14px;cursor:pointer;
+  color:var(--muted);border-radius:9px 9px 0 0;font-family:inherit;font-weight:600}
+nav button.active{background:var(--panel);color:var(--green-d);box-shadow:0 -2px 0 var(--green) inset}
+main{padding:20px;max-width:1080px;margin:0 auto}
+section{display:none}
+section.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:15px;margin:0 0 12px;color:var(--green-d);
+  border-left:4px solid var(--green);padding-left:10px}
+.card h3{font-size:13px;margin:16px 0 8px;color:var(--muted)}
+.row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.grow{flex:1;min-width:260px}
+/* 区画 */
+.plot-wrap{display:inline-block;position:relative}
+.compass{font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center}
+.grid{display:grid;grid-template-columns:repeat(10,26px);grid-auto-rows:26px;gap:1px;
+  background:var(--line);border:2px solid var(--green-d);touch-action:none;user-select:none}
+.cell{cursor:pointer}
+.cell:hover{outline:2px solid var(--green-d);outline-offset:-2px;z-index:2}
+.scale{font-size:10px;color:var(--muted);text-align:center;margin-top:3px}
+.palette{display:flex;flex-direction:column;gap:5px;min-width:150px}
+.sw{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);
+  border-radius:7px;cursor:pointer;background:var(--panel);font-size:12px}
+.sw.sel{border-color:var(--green);box-shadow:0 0 0 2px rgba(74,124,89,.2)}
+.sw .chip{width:16px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,.15);flex:none}
+.legend-area{font-size:12px}
+.legend-area table{width:100%;border-collapse:collapse}
+.legend-area td{padding:3px 6px;border-bottom:1px solid var(--soft)}
+.legend-area td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+/* テーブル */
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th,table.data td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
+table.data th{color:var(--muted);font-weight:600;font-size:11px;text-transform:none}
+table.data td.n{text-align:right;font-variant-numeric:tabular-nums}
+table.data input{border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-size:13px;
+  font-family:inherit;width:100%;background:#fff}
+table.data input.n{text-align:right}
+.chip-g{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.del{color:#b5563f;cursor:pointer;font-size:12px;border:none;background:none}
+.addbtn{margin-top:8px;background:var(--soft);border:1px dashed var(--line);border-radius:7px;
+  padding:6px 12px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--green-d)}
+.total{font-weight:700;color:var(--green-d)}
+.note{font-size:12px;color:var(--muted);background:var(--soft);border-radius:8px;padding:10px 12px;margin-top:10px}
+.kpi{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.kpi div{background:var(--soft);border-radius:9px;padding:10px 14px;min-width:120px}
+.kpi b{display:block;font-size:20px;color:var(--green-d);font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;color:var(--muted)}
+/* スケジュール */
+.gantt{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+.gantt th,.gantt td{border:1px solid var(--line);padding:0;text-align:center;height:22px}
+.gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0}
+.gantt td.name{text-align:left;padding:0 8px;font-size:12px;width:92px;background:#fff}
+.gantt td.winter{background:#eceef0}
+.g-plant{background:var(--c-summer)}
+.g-grow{background:#cfe0c9}
+.g-harvest{background:var(--green)}
+.gl{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin-top:10px;color:var(--muted)}
+.gl span{display:inline-flex;align-items:center;gap:5px}
+.gl i{width:14px;height:11px;border-radius:3px;display:inline-block}
+/* 方針 */
+.zones{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.zone{flex:1;min-width:150px;border-radius:11px;padding:14px;color:#fff}
+.zone.plot{background:#6b9b7a}.zone.water{background:var(--c-makomo)}.zone.alpha{background:#c0a06a}
+.zone b{font-size:15px;display:block;margin-bottom:4px}
+.zone small{opacity:.92;font-size:11.5px;line-height:1.5}
+ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
+.pill{display:inline-block;background:var(--soft);border-radius:20px;padding:2px 11px;
+  font-size:12px;margin:2px 3px 2px 0;border:1px solid var(--line)}
+@media print{
+  nav,header .btn{display:none}
+  section{display:block!important;page-break-inside:avoid}
+  header{background:var(--green)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌾 あろ×みほ 農園ダッシュボード</h1>
+  <span class="sub" id="updated"></span>
+  <span class="spacer"></span>
+  <button class="btn" onclick="doExport()">💾 書き出し</button>
+  <button class="btn" onclick="document.getElementById('imp').click()">📂 読み込み</button>
+  <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(event)">
+  <button class="btn" onclick="pullShared()">☁️ 共有版を取り込む</button>
+  <button class="btn" onclick="window.print()">🖨 印刷 / PDF</button>
+  <button class="btn" onclick="doReset()">↺ 初期化</button>
+</header>
+
+<nav>
+  <button data-tab="plot" class="active">🟩 区画</button>
+  <button data-tab="budget">💰 品目・予算</button>
+  <button data-tab="sched">📅 スケジュール</button>
+  <button data-tab="policy">🧭 方針</button>
+</nav>
+
+<main>
+  <!-- 区画 -->
+  <section id="tab-plot" class="active">
+    <div class="card">
+      <h2>畑の区画イメージ（約60坪 / 198㎡）</h2>
+      <p class="note">パレットで品目を選んで、マスをクリック（スマホは指でなぞる）＝塗り絵で配置。1マス＝1㎡。塗ったマス数が右の面積に自動集計されます。背の高い支柱もの（トマト・きゅうり）は北側に置くと畑全体に影が出にくい。</p>
+      <div class="row">
+        <div class="palette" id="palette"></div>
+        <div class="plot-wrap">
+          <div class="compass">▲ 北（日当たり手前＝南）</div>
+          <div class="grid" id="grid"></div>
+          <div class="scale">← 約10m →　　縦 約20m</div>
+        </div>
+        <div class="grow legend-area">
+          <h3>面積の集計（㎡）</h3>
+          <table id="areaTbl"></table>
+        </div>
+      </div>
+      <p class="note" id="rotNote">🔁 <b>輪作メモ：</b>ナス科（トマト・なす・ピーマン・じゃがいも）は連作を嫌うので毎年ゾーンをずらす。マメ科の枝豆は根粒菌で土を肥やすので、翌年その場所にナス科や葉物を回すと good。真菰は畑の外＝水場（別区画）。</p>
+    </div>
+  </section>
+
+  <!-- 予算 -->
+  <section id="tab-budget">
+    <div class="card">
+      <h2>品目マスタ（種苗費）</h2>
+      <table class="data" id="itemTbl"></table>
+      <button class="addbtn" onclick="addItem()">＋ 品目を追加</button>
+    </div>
+    <div class="card">
+      <h2>道具・資材（初年度）</h2>
+      <p class="note">初年度だけかかる初期投資。ここは「開業費の弾」＝レシート保管対象（3年戦略と直結）。2年目以降は消耗品のみ。</p>
+      <table class="data" id="toolTbl"></table>
+      <button class="addbtn" onclick="addTool()">＋ 道具を追加</button>
+    </div>
+    <div class="card">
+      <h2>初年度サマリ</h2>
+      <div class="kpi" id="kpi"></div>
+      <p class="note">💡 二人の野菜自給で<b>年 約10万円の食費削減</b>を見込むと、初年度の種苗＋道具（下記合計）は<b>初年度でほぼ回収、2年目以降は完全に黒字</b>。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
+    </div>
+  </section>
+
+  <!-- スケジュール -->
+  <section id="tab-sched">
+    <div class="card">
+      <h2>年間スケジュール（柏崎 / 雪国前提）</h2>
+      <p class="note"><b>前提：</b>2026年9月末〜10月着任＝<b>2026秋は畑選び・土見が中心</b>、フル稼働の実質1年目は<b>2027春</b>。作業は🔥<b>4〜5月（植付け）</b>と🔥<b>10〜11月（収穫・越冬準備）</b>の二山に集中。12〜3月は雪＝保存野菜で越冬＆計画の農閑期。</p>
+      <table class="gantt" id="gantt"></table>
+      <div class="gl">
+        <span><i class="g-plant"></i>植付け・種まき</span>
+        <span><i class="g-grow"></i>育成・管理</span>
+        <span><i class="g-harvest"></i>収穫</span>
+        <span><i style="background:#eceef0"></i>雪・農閑期</span>
+      </div>
+      <p class="note">🌾 真菰は春植え→秋どりで1年で回る多年草。収穫が秋の忙しい山と重なるが、独立後の主力商品なので頑張りどころ。</p>
+    </div>
+  </section>
+
+  <!-- 方針 -->
+  <section id="tab-policy">
+    <div class="card">
+      <h2>この畑の方針</h2>
+      <p><b>方向＝「定番野菜を広く・自給率重視」</b>。二人が普段から季節のものを食べる暮らしと直結した、続く自給。基盤は<b>「優しいサバイバル」</b>（制度に守られた土台の上で自分たちの野菜を育て、マイナスいかない範囲で積み上げる）。</p>
+      <h3>品目セット（16品目＋真菰）</h3>
+      <div>
+        <span class="pill" style="background:#f2e6c9">🥔 土台：じゃがいも・さつまいも・玉ねぎ・ねぎ</span>
+        <span class="pill" style="background:#f6ddd3">☀️ 夏：トマト・なす・きゅうり・ピーマン・枝豆・バジル</span>
+        <span class="pill" style="background:#dde7f2">❄️ 秋冬：大根・白菜・にんじん</span>
+        <span class="pill" style="background:#e5efd6">🌱 端境期：小松菜・青梗菜</span>
+        <span class="pill" style="background:#d6e8f4">💧 別枠：真菰</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>棲み分け（畑と水場を物理分離）</h2>
+      <div class="zones">
+        <div class="zone plot"><b>🟩 畑ゾーン 60坪</b><small>自給16品目。あろ×みほで見れる限度。実作付け125㎡前後で収まり、枝豆・じゃがいもを増やす余白あり。</small></div>
+        <div class="zone water"><b>💧 水ゾーン（別枠）</b><small>真菰。水生ゆえ畑に入れない。休耕田・湿地・水利のある一角。協力隊期は小さく試作、独立後に商品規模へ拡張。</small></div>
+        <div class="zone alpha"><b>➕ プラスα</b><small>土地があれば。真菰の増産／芋の保存用増産／みほの実験区。</small></div>
+      </div>
+      <p class="note">🌾 <b>真菰＝独立後の主力商品 × 二人の大好物。</b>作り手が本気で好きで毎日食べる＝商品ストーリー最強。あろのマーケ・営業経験が最も活きる形。<br>🔲 <b>体験就農（7/24〜）で「真菰用の水利・休耕田があるか」を必須確認。</b></p>
+    </div>
+    <div class="card">
+      <h2>次の一手（第一弾ゆえの前提）</h2>
+      <ul class="tight">
+        <li>面積・品目・配置はすべて<b>叩き台</b>。実際の畑を見てから区画を塗り直す前提。</li>
+        <li>研修（大日）の本業畝を自家消費に回せるなら、自分の畑はもっと小さくてOK。</li>
+        <li>二山（4-5月／10-11月）が本業研修と両立できるか、体力配分は要意識。</li>
+        <li>トマトは固定種を選ぶと自家採種の主役に（品種は後で決定）。</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ---------- データ ---------- */
+var GROUPS={
+  base:{label:'保存の土台',color:'#d9b877'},
+  summer:{label:'夏果菜',color:'#e08a6f'},
+  bean:{label:'マメ',color:'#cb9a5f'},
+  winter:{label:'秋冬',color:'#8fabd0'},
+  leaf:{label:'葉物・ハーブ',color:'#a3c47f'},
+  makomo:{label:'真菰(水場)',color:'#6fa3c9'}
+};
+var SPECIAL={
+  path:{label:'通路',color:'#e4dccb'},
+  empty:{label:'空き（消す）',color:'#f4f1e9'}
+};
+// 月: 0=1月 ... 11=12月 / p=植付 g=育成 h=収穫
+var DEFAULT={
+  meta:{updated:''},
+  items:[
+    {id:'pota',name:'じゃがいも',group:'base',buy:'種芋 約3.5kg',seed:2500,sch:{2:'p',3:'p',4:'g',5:'h',6:'h'}},
+    {id:'sweet',name:'さつまいも',group:'base',buy:'つる苗 約18本',seed:1000,sch:{4:'p',5:'g',6:'g',7:'g',8:'g',9:'h'}},
+    {id:'onion',name:'玉ねぎ',group:'base',buy:'苗 約120本(2-3束)',seed:1500,sch:{10:'p',3:'g',4:'g',5:'h'}},
+    {id:'leek',name:'ねぎ',group:'base',buy:'種 1袋',seed:350,sch:{3:'p',4:'g',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}},
+    {id:'tomato',name:'トマト',group:'summer',buy:'苗 4株(固定種)',seed:1200,sch:{4:'p',5:'g',6:'h',7:'h',8:'h'}},
+    {id:'eggplant',name:'なす',group:'summer',buy:'苗 3株',seed:750,sch:{4:'p',5:'g',6:'h',7:'h',8:'h',9:'h'}},
+    {id:'cuke',name:'きゅうり',group:'summer',buy:'苗 3株',seed:700,sch:{4:'p',5:'g',6:'h',7:'h'}},
+    {id:'pepper',name:'ピーマン',group:'summer',buy:'苗 3株',seed:700,sch:{4:'p',5:'g',6:'h',7:'h',8:'h',9:'h'}},
+    {id:'edamame',name:'枝豆',group:'bean',buy:'種 2袋',seed:800,sch:{3:'p',4:'p',5:'g',6:'h',7:'h'}},
+    {id:'daikon',name:'大根',group:'winter',buy:'種 1袋',seed:400,sch:{7:'p',8:'g',9:'g',10:'h'}},
+    {id:'carrot',name:'にんじん',group:'winter',buy:'種 1袋',seed:400,sch:{6:'p',7:'g',8:'g',9:'g',10:'h'}},
+    {id:'napa',name:'白菜',group:'winter',buy:'種 1袋',seed:400,sch:{7:'p',8:'g',9:'g',10:'h'}},
+    {id:'komatsu',name:'小松菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
+    {id:'bokchoy',name:'青梗菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
+    {id:'basil',name:'バジル',group:'leaf',buy:'種 1袋',seed:300,sch:{4:'p',5:'g',6:'h',7:'h',8:'h'}},
+    {id:'makomo',name:'真菰(水場)',group:'makomo',buy:'株苗 3〜5株',seed:4000,sch:{3:'p',4:'p',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}}
+  ],
+  tools:[
+    {name:'鍬・スコップ・移植ゴテ',cost:8000},
+    {name:'支柱（イボ竹）セット',cost:3000},
+    {name:'防虫ネット・不織布',cost:3000},
+    {name:'マルチシート',cost:2000},
+    {name:'じょうろ・ホース',cost:4000},
+    {name:'誘引資材（マイカ線ほか）',cost:1500},
+    {name:'もみ殻・堆肥（土づくり）',cost:3000},
+    {name:'収穫カゴ・コンテナ',cost:2500}
+  ],
+  cells:null
+};
+function defaultCells(){
+  var C=10,R=20,g=new Array(C*R).fill('empty');
+  function put(c0,c1,r0,r1,id){for(var r=r0;r<=r1;r++)for(var c=c0;c<=c1;c++)g[r*C+c]=id;}
+  put(0,1,0,2,'tomato');put(2,3,0,2,'eggplant');put(4,5,0,2,'cuke');put(6,7,0,2,'pepper');put(8,9,0,2,'basil');
+  put(0,9,3,3,'path');
+  put(0,4,4,6,'edamame');put(5,6,4,6,'komatsu');put(7,8,4,6,'bokchoy');put(9,9,4,6,'leek');
+  put(0,9,7,7,'path');
+  put(0,3,8,12,'pota');put(4,6,8,12,'sweet');put(7,8,8,12,'onion');put(9,9,8,12,'leek');
+  put(0,9,13,13,'path');
+  put(0,2,14,18,'daikon');put(3,5,14,18,'napa');put(6,8,14,18,'carrot');
+  put(0,9,19,19,'path');
+  return g;
+}
+/* ---------- 状態 ---------- */
+var KEY='aromiho_farm_dashboard_v1';
+var state, selPaint='pota';
+function load(){
+  try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.items){return s;}}catch(e){}
+  var d=JSON.parse(JSON.stringify(DEFAULT));d.cells=defaultCells();return d;
+}
+function save(){
+  state.meta.updated=new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  localStorage.setItem(KEY,JSON.stringify(state));
+  document.getElementById('updated').textContent='最終更新 '+state.meta.updated;
+}
+function itemById(id){for(var i=0;i<state.items.length;i++)if(state.items[i].id===id)return state.items[i];return null;}
+function colorOf(id){
+  if(SPECIAL[id])return SPECIAL[id].color;
+  var it=itemById(id);if(it)return GROUPS[it.group].color;return SPECIAL.empty.color;
+}
+function labelOf(id){
+  if(SPECIAL[id])return SPECIAL[id].label;
+  var it=itemById(id);return it?it.name:'';
+}
+/* ---------- 区画 ---------- */
+function renderPalette(){
+  var p=document.getElementById('palette'),h='<h3 style="margin-top:0">パレット</h3>';
+  state.items.forEach(function(it){
+    if(it.group==='makomo')return; // 真菰は畑外
+    h+=swHtml(it.id,it.name);
+  });
+  h+=swHtml('path','通路');
+  h+=swHtml('empty','空き（消す）');
+  p.innerHTML=h;
+  Array.prototype.forEach.call(p.querySelectorAll('.sw'),function(el){
+    el.onclick=function(){selPaint=el.dataset.id;renderPalette();};
+  });
+}
+function swHtml(id,name){
+  return '<div class="sw'+(selPaint===id?' sel':'')+'" data-id="'+id+'">'+
+    '<span class="chip" style="background:'+colorOf(id)+'"></span>'+name+'</div>';
+}
+var painting=false;
+function renderGrid(){
+  var g=document.getElementById('grid'),h='';
+  for(var i=0;i<state.cells.length;i++){
+    h+='<div class="cell" data-i="'+i+'" style="background:'+colorOf(state.cells[i])+'" title="'+labelOf(state.cells[i])+'"></div>';
+  }
+  g.innerHTML=h;
+}
+function paintAt(el){
+  if(!el||!el.dataset||el.dataset.i===undefined)return;
+  var i=+el.dataset.i;
+  if(state.cells[i]!==selPaint){
+    state.cells[i]=selPaint;
+    el.style.background=colorOf(selPaint);
+    el.title=labelOf(selPaint);
+    scheduleAreaUpdate();
+  }
+}
+var areaTimer=null;
+function scheduleAreaUpdate(){clearTimeout(areaTimer);areaTimer=setTimeout(function(){renderArea();save();},120);}
+function renderArea(){
+  var count={};state.cells.forEach(function(id){count[id]=(count[id]||0)+1;});
+  var rows='',total=0;
+  state.items.forEach(function(it){
+    if(it.group==='makomo')return;
+    var n=count[it.id]||0;if(n===0)return;total+=n;
+    rows+='<tr><td><span class="chip-g" style="background:'+colorOf(it.id)+'"></span>'+it.name+'</td><td class="n">'+n+'</td></tr>';
+  });
+  var path=count['path']||0,empty=count['empty']||0;
+  rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.path.color+'"></span>通路</td><td class="n">'+path+'</td></tr>';
+  rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.empty.color+'"></span>空き</td><td class="n">'+empty+'</td></tr>';
+  rows+='<tr style="border-top:2px solid var(--line)"><td class="total">作付け合計</td><td class="n total">'+total+' ㎡</td></tr>';
+  rows+='<tr><td style="color:var(--muted)">畑ぜんたい</td><td class="n" style="color:var(--muted)">200 ㎡ ≒ 60坪</td></tr>';
+  document.getElementById('areaTbl').innerHTML=rows;
+}
+function bindGrid(){
+  var g=document.getElementById('grid');
+  g.addEventListener('pointerdown',function(e){painting=true;paintAt(e.target);e.preventDefault();});
+  g.addEventListener('pointermove',function(e){
+    if(!painting)return;
+    var el=document.elementFromPoint(e.clientX,e.clientY);
+    if(el&&el.classList.contains('cell'))paintAt(el);
+  });
+  document.addEventListener('pointerup',function(){painting=false;});
+}
+/* ---------- 品目・予算 ---------- */
+function renderItems(){
+  var t=document.getElementById('itemTbl');
+  var count={};state.cells.forEach(function(id){count[id]=(count[id]||0)+1;});
+  var h='<tr><th>品目</th><th>グループ</th><th>配置㎡</th><th>買い方</th><th>種苗費(円)</th><th></th></tr>';
+  state.items.forEach(function(it,idx){
+    var area=it.group==='makomo'?'—(水場)':(count[it.id]||0);
+    h+='<tr>'+
+      '<td><input value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>'+
+      '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
+      '<td class="n">'+area+'</td>'+
+      '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
+      '<td class="n"><input class="n" type="number" value="'+it.seed+'" onchange="upItem('+idx+',\'seed\',+this.value)"></td>'+
+      '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
+  });
+  var seedTotal=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
+  h+='<tr style="border-top:2px solid var(--line)"><td class="total">種苗費 合計</td><td colspan="3"></td><td class="n total">'+yen(seedTotal)+'</td><td></td></tr>';
+  t.innerHTML=h;
+}
+function renderTools(){
+  var t=document.getElementById('toolTbl');
+  var h='<tr><th>道具・資材</th><th>費用(円)</th><th></th></tr>';
+  state.tools.forEach(function(to,idx){
+    h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
+      '<td class="n"><input class="n" type="number" value="'+to.cost+'" onchange="upTool('+idx+',\'cost\',+this.value)"></td>'+
+      '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
+  });
+  var tt=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  h+='<tr style="border-top:2px solid var(--line)"><td class="total">道具・資材 合計</td><td class="n total">'+yen(tt)+'</td><td></td></tr>';
+  t.innerHTML=h;
+}
+function renderKpi(){
+  var seed=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
+  var tool=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  document.getElementById('kpi').innerHTML=
+    '<div><b>'+yen(seed)+'</b><span>種苗費 / 年</span></div>'+
+    '<div><b>'+yen(tool)+'</b><span>道具・資材（初年度のみ）</span></div>'+
+    '<div><b>'+yen(seed+tool)+'</b><span>初年度 合計</span></div>'+
+    '<div><b>約10万</b><span>見込む食費削減 / 年</span></div>';
+}
+function upItem(i,k,v){state.items[i][k]=v;save();if(k==='seed'){renderKpi();renderItems();}}
+function delItem(i){if(!confirm('「'+state.items[i].name+'」を削除しますか？'))return;state.items.splice(i,1);renderAll();save();}
+function addItem(){
+  var id='item'+Date.now();
+  state.items.push({id:id,name:'新しい品目',group:'leaf',buy:'',seed:0,sch:{}});
+  renderAll();save();
+}
+function upTool(i,k,v){state.tools[i][k]=v;save();renderKpi();renderTools();}
+function delTool(i){state.tools.splice(i,1);renderTools();renderKpi();save();}
+function addTool(){state.tools.push({name:'新しい道具',cost:0});renderTools();save();}
+/* ---------- スケジュール ---------- */
+function renderGantt(){
+  var M=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  var winter={0:1,1:1,2:1,11:1}; // 雪・農閑
+  var h='<tr><th class="name">品目</th>';
+  M.forEach(function(m,i){h+='<th'+(winter[i]?' class="winter"':'')+'>'+m+'</th>';});
+  h+='</tr>';
+  state.items.forEach(function(it){
+    h+='<tr><td class="name"><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+esc(it.name)+'</td>';
+    for(var m=0;m<12;m++){
+      var v=it.sch&&it.sch[m];var cls=winter[m]?'winter':'';
+      if(v==='p')cls='g-plant';else if(v==='g')cls='g-grow';else if(v==='h')cls='g-harvest';
+      var lab=v==='p'?'植':v==='g'?'':v==='h'?'収':'';
+      h+='<td class="'+cls+'">'+lab+'</td>';
+    }
+    h+='</tr>';
+  });
+  document.getElementById('gantt').innerHTML=h;
+}
+/* ---------- 共通 ---------- */
+function yen(n){return '¥'+(n||0).toLocaleString('ja-JP');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function renderAll(){renderPalette();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();}
+/* タブ */
+Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
+  b.onclick=function(){
+    Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(x){x.classList.remove('active');});
+    Array.prototype.forEach.call(document.querySelectorAll('main section'),function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+  };
+});
+/* 入出力 */
+function doExport(){
+  var blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='農園ダッシュボード_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+}
+function doImport(ev){
+  var f=ev.target.files[0];if(!f)return;var r=new FileReader();
+  r.onload=function(){try{var s=JSON.parse(r.result);if(s.items){state=s;if(!state.cells)state.cells=defaultCells();renderAll();save();alert('読み込みました');}}catch(e){alert('読み込めませんでした：'+e);}};
+  r.readAsText(f);
+}
+function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=load();renderAll();save();}
+/* 共有(data.json)取り込み */
+async function pullShared(){
+  if(!confirm('リポジトリの共有版(data.json)を取り込み、今の編集を上書きします。よろしい？'))return;
+  try{
+    var r=await fetch('data.json',{cache:'no-store'});
+    if(!r.ok)throw new Error('data.json が見つかりません（まだ共有版が未登録かも）');
+    var s=await r.json();if(!s.items)throw new Error('形式が違います');
+    state=s;if(!state.cells)state.cells=defaultCells();renderAll();save();alert('共有版を取り込みました');
+  }catch(e){alert('取り込めませんでした：'+e.message);}
+}
+/* 起動 */
+async function boot(){
+  state=load();
+  if(!localStorage.getItem(KEY)){
+    try{var r=await fetch('data.json',{cache:'no-store'});if(r.ok){var s=await r.json();if(s.items){state=s;if(!state.cells)state.cells=defaultCells();}}}catch(e){}
+  }
+  renderAll();bindGrid();save();
+}
+boot();
+</script>
+</body>
+</html>
