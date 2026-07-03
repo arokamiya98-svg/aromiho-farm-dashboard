@@ -184,6 +184,14 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
         <button class="minibtn" onclick="undo()">↶ 1つ戻す</button>
         <span class="note" id="modeHint" style="margin:0;padding:6px 10px"></span>
       </div>
+      <div class="toolbar">
+        <span style="font-size:12px;color:var(--muted)">表示</span>
+        <div class="modebar" id="viewBar">
+          <button data-view="layout" onclick="setView('layout')">🗺 配置図</button>
+          <button data-view="grow" onclick="setView('grow')">🌱 生育図</button>
+        </div>
+        <span class="note" id="viewHint" style="margin:0;padding:6px 10px"></span>
+      </div>
       <div class="row">
         <div class="palette" id="palette"></div>
         <div class="plot-wrap">
@@ -390,7 +398,9 @@ function defaultPlots(){
 function freshState(){var d=JSON.parse(JSON.stringify(DEFAULT));d.plots=defaultPlots();d.activePlot='main';return d;}
 
 /* ===== 状態 ===== */
-var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', painting=false, undoStack=[];
+var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', viewMap='layout', painting=false, undoStack=[];
+/* 生育図の色＝進み具合（薄い＝種／濃い緑＝収穫期／灰＝収穫済） */
+var STAGE_COLORS=['#f0e9da','#e2ead0','#cfe0b4','#aecb86','#8bb668','#5f9e4a','#c9c5b8'];
 function migrateCells(arr){return arr.map(function(v){if(v==='path')return {t:'path'};if(v==='empty'||!v)return {t:'empty'};return {t:v,s:5};});}
 function normalize(s){
   if(!s||!s.items)return null;
@@ -421,6 +431,10 @@ function colorOf(id){if(SPECIAL[id])return SPECIAL[id].color;var it=itemById(id)
 function labelOf(id){if(SPECIAL[id])return SPECIAL[id].label;var it=itemById(id);return it?it.name:'';}
 function stageEmoji(c){if(!c||SPECIAL[c.t])return '';var s=Math.min(c.s||0,STAGES.length-1);var e=STAGES[s].e;return e===null?emo(c.t):e;}
 function cellTitle(c){if(!c||SPECIAL[c.t])return SPECIAL[c.t]?SPECIAL[c.t].label:'';var it=itemById(c.t);var s=Math.min(c.s||0,STAGES.length-1);return (it?it.name:'')+'：'+STAGES[s].l;}
+/* 表示モードに応じたセルの色・絵文字（配置図＝作物色＋作物アイコン／生育図＝進み色＋ステージ絵文字） */
+function cellBg(c){var id=cellId(c);if(SPECIAL[id])return SPECIAL[id].color;var it=itemById(id);if(!it)return SPECIAL.empty.color;
+  if(viewMap==='grow')return STAGE_COLORS[Math.min(c.s||0,STAGE_COLORS.length-1)];return GROUPS[it.group].color;}
+function cellGlyph(c){if(!c||SPECIAL[c.t])return '';return viewMap==='layout'?emo(c.t):stageEmoji(c);}
 
 /* ===== 区画：畑バー・モード ===== */
 function renderPlotBar(){
@@ -451,13 +465,20 @@ function setMode(m){mode=m;applyModeUI();}
 function applyModeUI(){
   Array.prototype.forEach.call(document.querySelectorAll('#modeBar button'),function(b){b.classList.toggle('on',b.dataset.mode===mode);});
   document.getElementById('palette').style.display=(mode==='place')?'':'none';
-  document.getElementById('stageLegend').style.display=(mode==='grow')?'':'none';
+  document.getElementById('stageLegend').style.display=(mode==='grow'||viewMap==='grow')?'':'none';
   var g=document.getElementById('grid');if(g)g.style.touchAction=(mode==='view')?'auto':'none';
   var hint={view:'閲覧中：タップしても変わりません（安全にスクロールできます）',place:'配置中：パレットの品目でマスを塗る（ドラッグOK・1マス=1㎡）',grow:'生育中：マスをタップで生育ステージが1つ進む'};
   document.getElementById('modeHint').textContent=hint[mode];
 }
+function setView(v){viewMap=v;state.viewMap=v;save();applyViewUI();renderGrid();}
+function applyViewUI(){
+  Array.prototype.forEach.call(document.querySelectorAll('#viewBar button'),function(b){b.classList.toggle('on',b.dataset.view===viewMap);});
+  document.getElementById('stageLegend').style.display=(mode==='grow'||viewMap==='grow')?'':'none';
+  var hint={layout:'配置図：作物ごとの色で「どこに何を植えたか」',grow:'生育図：色の濃さ＝生育の進み（薄い=種→濃い緑=収穫期→灰=収穫済）'};
+  document.getElementById('viewHint').textContent=hint[viewMap];
+}
 function renderStageLegend(){
-  var h='';STAGES.forEach(function(s){h+='<span>'+(s.e===null?'🍅':s.e)+' '+s.l+'</span>';});
+  var h='';STAGES.forEach(function(s,i){h+='<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:'+STAGE_COLORS[i]+';border:1px solid rgba(0,0,0,.12)"></i>'+(s.e===null?'🍅':s.e)+' '+s.l+'</span>';});
   document.getElementById('stageLegend').innerHTML=h;
 }
 
@@ -477,12 +498,12 @@ function renderGrid(){
   var p=curPlot(),g=document.getElementById('grid'),h='';
   g.style.gridTemplateColumns='repeat('+p.cols+',26px)';
   for(var i=0;i<p.cells.length;i++){var c=p.cells[i];
-    h+='<div class="cell" data-i="'+i+'" style="background:'+colorOf(cellId(c))+'" title="'+esc(cellTitle(c))+'">'+stageEmoji(c)+'</div>';
+    h+='<div class="cell" data-i="'+i+'" style="background:'+cellBg(c)+'" title="'+esc(cellTitle(c))+'">'+cellGlyph(c)+'</div>';
   }
   g.innerHTML=h;
   document.getElementById('plotScale').textContent='← 約'+p.cols+'m →　　縦 約'+p.rows+'m　（'+p.cols*p.rows+'㎡）';
 }
-function drawCell(el,c){el.style.background=colorOf(cellId(c));el.title=cellTitle(c);el.textContent=stageEmoji(c);}
+function drawCell(el,c){el.style.background=cellBg(c);el.title=cellTitle(c);el.textContent=cellGlyph(c);}
 function placeAt(el){var i=+el.dataset.i,pl=curPlot();pl.cells[i]=SPECIAL[selPaint]?{t:selPaint}:{t:selPaint,s:0};drawCell(el,pl.cells[i]);scheduleUpdate();}
 function growAt(el){var i=+el.dataset.i,c=curPlot().cells[i];if(SPECIAL[c.t])return;c.s=((c.s||0)+1)%STAGES.length;drawCell(el,c);scheduleUpdate();}
 var upTimer=null;
@@ -590,7 +611,7 @@ function renderGantt(){
 /* ===== 共通 ===== */
 function yen(n){return '¥'+(n||0).toLocaleString('ja-JP');}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function renderAll(){renderPlotBar();renderPalette();renderStageLegend();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();applyModeUI();}
+function renderAll(){viewMap=state.viewMap||viewMap;renderPlotBar();renderPalette();renderStageLegend();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();applyModeUI();applyViewUI();}
 
 /* タブ */
 function activateTab(name){
@@ -605,6 +626,13 @@ Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b)
 /* 天気 (Open-Meteo) */
 var WMO={0:['☀️','快晴'],1:['🌤','晴れ'],2:['⛅','薄曇り'],3:['☁️','曇り'],45:['🌫','霧'],48:['🌫','霧氷'],51:['🌦','霧雨'],53:['🌦','霧雨'],55:['🌦','霧雨'],61:['🌧','雨'],63:['🌧','雨'],65:['🌧','強い雨'],66:['🌧','氷雨'],67:['🌧','氷雨'],71:['🌨','雪'],73:['🌨','雪'],75:['❄️','大雪'],77:['🌨','霧雪'],80:['🌦','にわか雨'],81:['🌦','にわか雨'],82:['⛈','激しい雨'],85:['🌨','にわか雪'],86:['🌨','にわか雪'],95:['⛈','雷雨'],96:['⛈','雷雨'],99:['⛈','雹']};
 function wmo(c){return WMO[c]||['🌡','—'];}
+/* タイムアウト付きfetch＝電波が弱いとき無限「読み込み中」にせず、時間切れで諦めて再試行できるように */
+async function fetchJSON(url,ms){
+  var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},ms||12000);
+  try{var r=await fetch(url,{signal:ctl.signal,cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}
+  finally{clearTimeout(t);}
+}
+function wxErr(e){return e.name==='AbortError'?'時間切れ（電波が弱いか混雑）。↻でもう一度':e.message;}
 function initGeoInputs(){
   var la=document.getElementById('geoLat'),lo=document.getElementById('geoLon');
   if(la)la.value=state.geo.lat;if(lo)lo.value=state.geo.lon;
@@ -619,7 +647,7 @@ async function loadWeather(){
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m'+
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia%2FTokyo&forecast_days=7';
   try{
-    var r=await fetch(u),d=await r.json(),c=d.current,w=wmo(c.weather_code);
+    var d=await fetchJSON(u),c=d.current,w=wmo(c.weather_code);
     document.getElementById('wxNow').innerHTML='<span class="big">'+w[0]+'</span><span class="t">'+Math.round(c.temperature_2m)+'°C</span><span class="m">'+w[1]+'<br>湿度 '+c.relative_humidity_2m+'%　降水 '+c.precipitation+'mm　風 '+c.wind_speed_10m+'m/s</span>';
     var dd=d.daily,h='',wd=['日','月','火','水','木','金','土'];
     for(var i=0;i<dd.time.length;i++){var ww=wmo(dd.weather_code[i]),dt=new Date(dd.time[i]);
@@ -627,7 +655,7 @@ async function loadWeather(){
     }
     document.getElementById('wxWeek').innerHTML=h;
     msg.textContent='地点：'+state.geo.name+'（'+state.geo.lat+', '+state.geo.lon+'）／ データ：Open-Meteo';
-  }catch(e){msg.textContent='天気の取得に失敗：'+e.message+'（オフラインだと表示できません）';}
+  }catch(e){msg.textContent='天気の取得に失敗：'+wxErr(e);}
 }
 function rainColor(mm){
   if(mm<0.1)return '#f6f2e8';   // 雨なし＝紙色
@@ -644,7 +672,7 @@ async function loadRainCalendar(){
   var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
     '&daily=weather_code,precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=31&forecast_days=1&timezone=Asia%2FTokyo';
   try{
-    var d=await (await fetch(u)).json(),dl=d.daily;if(!dl)throw new Error('データなし');
+    var d=await fetchJSON(u),dl=d.daily;if(!dl)throw new Error('データなし');
     var days=[];for(var i=0;i<dl.time.length;i++){
       days.push({iso:dl.time[i],dt:new Date(dl.time[i]+'T00:00:00'),code:dl.weather_code[i],
         mm:dl.precipitation_sum[i]||0,tmax:dl.temperature_2m_max[i],tmin:dl.temperature_2m_min[i]});
@@ -674,7 +702,7 @@ async function loadRainCalendar(){
     document.getElementById('rainLegend').innerHTML=
       '雨量 <i style="background:'+rainColor(0)+'"></i>0 <i style="background:'+rainColor(0.5)+'"></i>〜1 <i style="background:'+rainColor(3)+'"></i>1-5 <i style="background:'+rainColor(7)+'"></i>5-10 <i style="background:'+rainColor(15)+'"></i>10-20 <i style="background:'+rainColor(30)+'"></i>20-40 <i style="background:'+rainColor(50)+'"></i>40mm↑';
     msg.textContent='過去'+days.length+'日（今日まで）／ データ：Open-Meteo';
-  }catch(e){msg.textContent='雨カレンダーの取得に失敗：'+e.message+'（オフラインだと表示できません）';}
+  }catch(e){msg.textContent='雨カレンダーの取得に失敗：'+wxErr(e);}
 }
 async function downloadArchive(){
   var s=document.getElementById('arcStart').value,e=document.getElementById('arcEnd').value;
