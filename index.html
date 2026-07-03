@@ -44,7 +44,7 @@ section.active{display:block}
 .compass{font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center}
 .grid{display:grid;grid-template-columns:repeat(10,26px);grid-auto-rows:26px;gap:1px;
   background:var(--line);border:2px solid var(--green-d);touch-action:none;user-select:none}
-.cell{cursor:pointer}
+.cell{cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1}
 .cell:hover{outline:2px solid var(--green-d);outline-offset:-2px;z-index:2}
 .scale{font-size:10px;color:var(--muted);text-align:center;margin-top:3px}
 .palette{display:flex;flex-direction:column;gap:5px;min-width:150px}
@@ -95,6 +95,16 @@ table.data input.n{text-align:right}
 ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 .pill{display:inline-block;background:var(--soft);border-radius:20px;padding:2px 11px;
   font-size:12px;margin:2px 3px 2px 0;border:1px solid var(--line)}
+.wg{border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-size:13px;font-family:inherit;width:96px}
+.wxnow{display:flex;gap:16px;align-items:center;background:var(--soft);border-radius:11px;padding:14px 18px;margin:10px 0;flex-wrap:wrap}
+.wxnow .big{font-size:36px;line-height:1}
+.wxnow .t{font-size:28px;font-weight:700;color:var(--green-d)}
+.wxnow .m{font-size:12px;color:var(--muted)}
+.wxweek{display:flex;gap:8px;flex-wrap:wrap}
+.wxday{flex:1;min-width:80px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 4px;background:#fff}
+.wxday .d{font-size:11px;color:var(--muted)}
+.wxday .i{font-size:26px;margin:2px 0;line-height:1}
+.wxday .hi{font-weight:700;color:#c65a3f}.wxday .lo{color:#5a7fb0}
 @media print{
   nav,header .btn{display:none}
   section{display:block!important;page-break-inside:avoid}
@@ -122,6 +132,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <button data-tab="budget">💰 品目・予算</button>
   <button data-tab="sched">📅 スケジュール</button>
   <button data-tab="policy">🧭 方針</button>
+  <button data-tab="weather">🌤 天気</button>
 </nav>
 
 <main>
@@ -215,6 +226,33 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       </ul>
     </div>
   </section>
+
+  <!-- 天気 -->
+  <section id="tab-weather">
+    <div class="card">
+      <h2>柏崎の天気（Open-Meteo・APIキー不要）</h2>
+      <div class="row" style="align-items:center;gap:8px">
+        <span>緯度</span><input id="geoLat" class="wg" type="number" step="0.001">
+        <span>経度</span><input id="geoLon" class="wg" type="number" step="0.001">
+        <button class="addbtn" onclick="applyGeo()">この地点で更新</button>
+        <button class="addbtn" onclick="loadWeather()">↻ 再読み込み</button>
+      </div>
+      <div id="wxNow" class="wxnow"></div>
+      <h3>週間予報</h3>
+      <div id="wxWeek" class="wxweek"></div>
+      <p class="note" id="wxMsg">読み込み中…</p>
+    </div>
+    <div class="card">
+      <h2>データ分析用：過去の気象をCSVで取得</h2>
+      <p class="note">将来、収穫記録と気象（気温・降水・日射）を突き合わせる素材。今のうちに"型"だけ作っておく＝データ分析の下ごしらえ。Open-Meteoの過去アーカイブから日次データを取ってCSVでダウンロード。</p>
+      <div class="row" style="align-items:center;gap:8px">
+        <span>開始</span><input id="arcStart" class="wg" type="date">
+        <span>終了</span><input id="arcEnd" class="wg" type="date">
+        <button class="addbtn" onclick="downloadArchive()">CSVダウンロード</button>
+      </div>
+      <p class="note">取得項目：日別の最高/最低気温・降水量・日射量。→ いずれ積算温度(GDD)や晩霜/初霜の分析にも展開できる。</p>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -231,9 +269,12 @@ var SPECIAL={
   path:{label:'通路',color:'#e4dccb'},
   empty:{label:'空き（消す）',color:'#f4f1e9'}
 };
+var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🌱',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🌾'};
+function emo(id){return EMOJI[id]||'🌱';}
 // 月: 0=1月 ... 11=12月 / p=植付 g=育成 h=収穫
 var DEFAULT={
   meta:{updated:''},
+  geo:{lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'},
   items:[
     {id:'pota',name:'じゃがいも',group:'base',buy:'種芋 約3.5kg',seed:2500,sch:{2:'p',3:'p',4:'g',5:'h',6:'h'}},
     {id:'sweet',name:'さつまいも',group:'base',buy:'つる苗 約18本',seed:1000,sch:{4:'p',5:'g',6:'g',7:'g',8:'g',9:'h'}},
@@ -313,14 +354,16 @@ function renderPalette(){
   });
 }
 function swHtml(id,name){
+  var e=(SPECIAL[id]?'':emo(id)+' ');
   return '<div class="sw'+(selPaint===id?' sel':'')+'" data-id="'+id+'">'+
-    '<span class="chip" style="background:'+colorOf(id)+'"></span>'+name+'</div>';
+    '<span class="chip" style="background:'+colorOf(id)+'"></span>'+e+name+'</div>';
 }
 var painting=false;
 function renderGrid(){
   var g=document.getElementById('grid'),h='';
   for(var i=0;i<state.cells.length;i++){
-    h+='<div class="cell" data-i="'+i+'" style="background:'+colorOf(state.cells[i])+'" title="'+labelOf(state.cells[i])+'"></div>';
+    var cid=state.cells[i];var ce=SPECIAL[cid]?'':emo(cid);
+    h+='<div class="cell" data-i="'+i+'" style="background:'+colorOf(cid)+'" title="'+labelOf(cid)+'">'+ce+'</div>';
   }
   g.innerHTML=h;
 }
@@ -331,6 +374,7 @@ function paintAt(el){
     state.cells[i]=selPaint;
     el.style.background=colorOf(selPaint);
     el.title=labelOf(selPaint);
+    el.textContent=SPECIAL[selPaint]?'':emo(selPaint);
     scheduleAreaUpdate();
   }
 }
@@ -342,7 +386,7 @@ function renderArea(){
   state.items.forEach(function(it){
     if(it.group==='makomo')return;
     var n=count[it.id]||0;if(n===0)return;total+=n;
-    rows+='<tr><td><span class="chip-g" style="background:'+colorOf(it.id)+'"></span>'+it.name+'</td><td class="n">'+n+'</td></tr>';
+    rows+='<tr><td><span class="chip-g" style="background:'+colorOf(it.id)+'"></span>'+emo(it.id)+' '+it.name+'</td><td class="n">'+n+'</td></tr>';
   });
   var path=count['path']||0,empty=count['empty']||0;
   rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.path.color+'"></span>通路</td><td class="n">'+path+'</td></tr>';
@@ -369,7 +413,7 @@ function renderItems(){
   state.items.forEach(function(it,idx){
     var area=it.group==='makomo'?'—(水場)':(count[it.id]||0);
     h+='<tr>'+
-      '<td><input value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>'+
+      '<td><span style="margin-right:4px">'+emo(it.id)+'</span><input style="width:calc(100% - 24px)" value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>'+
       '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
       '<td class="n">'+area+'</td>'+
       '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
@@ -419,11 +463,11 @@ function renderGantt(){
   M.forEach(function(m,i){h+='<th'+(winter[i]?' class="winter"':'')+'>'+m+'</th>';});
   h+='</tr>';
   state.items.forEach(function(it){
-    h+='<tr><td class="name"><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+esc(it.name)+'</td>';
+    h+='<tr><td class="name">'+emo(it.id)+' '+esc(it.name)+'</td>';
     for(var m=0;m<12;m++){
       var v=it.sch&&it.sch[m];var cls=winter[m]?'winter':'';
       if(v==='p')cls='g-plant';else if(v==='g')cls='g-grow';else if(v==='h')cls='g-harvest';
-      var lab=v==='p'?'植':v==='g'?'':v==='h'?'収':'';
+      var lab=v==='p'?'🌱':v==='h'?emo(it.id):'';
       h+='<td class="'+cls+'">'+lab+'</td>';
     }
     h+='</tr>';
@@ -435,14 +479,15 @@ function yen(n){return '¥'+(n||0).toLocaleString('ja-JP');}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function renderAll(){renderPalette();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();}
 /* タブ */
+function activateTab(name){
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(x){x.classList.toggle('active',x.dataset.tab===name);});
+  Array.prototype.forEach.call(document.querySelectorAll('main section'),function(x){x.classList.remove('active');});
+  var el=document.getElementById('tab-'+name); if(el)el.classList.add('active');
+}
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
-  b.onclick=function(){
-    Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(x){x.classList.remove('active');});
-    Array.prototype.forEach.call(document.querySelectorAll('main section'),function(x){x.classList.remove('active');});
-    b.classList.add('active');
-    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
-  };
+  b.onclick=function(){activateTab(b.dataset.tab);location.hash=b.dataset.tab;};
 });
+if(location.hash)activateTab(location.hash.slice(1));
 /* 入出力 */
 function doExport(){
   var blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
@@ -455,6 +500,59 @@ function doImport(ev){
   r.readAsText(f);
 }
 function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=load();renderAll();save();}
+/* 天気 (Open-Meteo・キー不要・ブラウザから直接) */
+var WMO={0:['☀️','快晴'],1:['🌤','晴れ'],2:['⛅','薄曇り'],3:['☁️','曇り'],45:['🌫','霧'],48:['🌫','霧氷'],51:['🌦','霧雨'],53:['🌦','霧雨'],55:['🌦','霧雨'],61:['🌧','雨'],63:['🌧','雨'],65:['🌧','強い雨'],66:['🌧','氷雨'],67:['🌧','氷雨'],71:['🌨','雪'],73:['🌨','雪'],75:['❄️','大雪'],77:['🌨','霧雪'],80:['🌦','にわか雨'],81:['🌦','にわか雨'],82:['⛈','激しい雨'],85:['🌨','にわか雪'],86:['🌨','にわか雪'],95:['⛈','雷雨'],96:['⛈','雷雨'],99:['⛈','雹']};
+function wmo(c){return WMO[c]||['🌡','—'];}
+function initGeoInputs(){
+  var la=document.getElementById('geoLat'),lo=document.getElementById('geoLon');
+  if(la)la.value=state.geo.lat; if(lo)lo.value=state.geo.lon;
+  var t=new Date(),y=new Date(t.getTime()-30*864e5);
+  var as=document.getElementById('arcStart'),ae=document.getElementById('arcEnd');
+  if(ae)ae.value=t.toISOString().slice(0,10);
+  if(as)as.value=y.toISOString().slice(0,10);
+}
+function applyGeo(){
+  state.geo.lat=+document.getElementById('geoLat').value;
+  state.geo.lon=+document.getElementById('geoLon').value;
+  state.geo.name='指定地点'; save(); loadWeather();
+}
+async function loadWeather(){
+  var msg=document.getElementById('wxMsg'); if(!msg)return; msg.textContent='読み込み中…';
+  var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
+    '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m'+
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum'+
+    '&timezone=Asia%2FTokyo&forecast_days=7';
+  try{
+    var r=await fetch(u); var d=await r.json();
+    var c=d.current, w=wmo(c.weather_code);
+    document.getElementById('wxNow').innerHTML=
+      '<span class="big">'+w[0]+'</span><span class="t">'+Math.round(c.temperature_2m)+'°C</span>'+
+      '<span class="m">'+w[1]+'<br>湿度 '+c.relative_humidity_2m+'%　降水 '+c.precipitation+'mm　風 '+c.wind_speed_10m+'m/s</span>';
+    var dd=d.daily, h='', wd=['日','月','火','水','木','金','土'];
+    for(var i=0;i<dd.time.length;i++){
+      var ww=wmo(dd.weather_code[i]), dt=new Date(dd.time[i]);
+      h+='<div class="wxday"><div class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+wd[dt.getDay()]+')</div>'+
+        '<div class="i">'+ww[0]+'</div><div><span class="hi">'+Math.round(dd.temperature_2m_max[i])+'°</span>/<span class="lo">'+Math.round(dd.temperature_2m_min[i])+'°</span></div>'+
+        '<div class="d">☔'+dd.precipitation_sum[i]+'mm</div></div>';
+    }
+    document.getElementById('wxWeek').innerHTML=h;
+    msg.textContent='地点：'+state.geo.name+'（'+state.geo.lat+', '+state.geo.lon+'）／ データ：Open-Meteo';
+  }catch(e){msg.textContent='天気の取得に失敗：'+e.message+'（オフラインだと表示できません）';}
+}
+async function downloadArchive(){
+  var s=document.getElementById('arcStart').value, e=document.getElementById('arcEnd').value;
+  if(!s||!e){alert('期間を指定してください');return;}
+  var u='https://archive-api.open-meteo.com/v1/archive?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
+    '&start_date='+s+'&end_date='+e+'&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,shortwave_radiation_sum&timezone=Asia%2FTokyo';
+  try{
+    var r=await fetch(u); var d=await r.json(); var dl=d.daily;
+    if(!dl){alert('データがありません');return;}
+    var csv='date,tmax_C,tmin_C,precip_mm,radiation_MJ\n';
+    for(var i=0;i<dl.time.length;i++){csv+=dl.time[i]+','+dl.temperature_2m_max[i]+','+dl.temperature_2m_min[i]+','+dl.precipitation_sum[i]+','+dl.shortwave_radiation_sum[i]+'\n';}
+    var blob=new Blob([csv],{type:'text/csv'}); var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='kashiwazaki_weather_'+s+'_'+e+'.csv'; a.click();
+  }catch(err){alert('取得に失敗：'+err.message);}
+}
 /* 共有(data.json)取り込み */
 async function pullShared(){
   if(!confirm('リポジトリの共有版(data.json)を取り込み、今の編集を上書きします。よろしい？'))return;
@@ -471,7 +569,8 @@ async function boot(){
   if(!localStorage.getItem(KEY)){
     try{var r=await fetch('data.json',{cache:'no-store'});if(r.ok){var s=await r.json();if(s.items){state=s;if(!state.cells)state.cells=defaultCells();}}}catch(e){}
   }
-  renderAll();bindGrid();save();
+  if(!state.geo)state.geo={lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'};
+  renderAll();bindGrid();initGeoInputs();loadWeather();save();
 }
 boot();
 </script>
