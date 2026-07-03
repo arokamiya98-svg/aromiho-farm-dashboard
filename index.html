@@ -718,10 +718,32 @@ function canonItem(nm){var it=itemByName(nm);return it?it.name:(nm||'');} // 表
 function itemMeta(nm){var it=itemByName(nm)||itemById(nm);return it?{emo:emo(it.id),color:GROUPS[it.group].color}:{emo:'🌾',color:'#9bb37f'};}
 /* 重さはkgに正規化（800g→0.8kg／1t→1000kg）。個/本/束などの数え単位はそのまま */
 function normQU(qty,unit){qty=+qty||0;if(unit==='g')return{qty:qty/1000,unit:'kg'};if(unit==='mg')return{qty:qty/1e6,unit:'kg'};if(unit==='t')return{qty:qty*1000,unit:'kg'};return{qty:qty,unit:unit||''};}
+function normUnit(u){u=(u||'').toLowerCase();var map={'キロ':'kg','kgs':'kg','グラム':'g','ｇ':'g','コ':'個','玉':'個','ｋｇ':'kg'};return map[u]||u;}
+/* リマインダーの生タイトルを 品目/数量/単位 に分解（全角・カナ・絵文字・スペース有無を吸収）
+   例："🍅トマト 3個"→{item:トマト,qty:3,unit:個} / "ナス３本"→{なす,3,本} / "にんじん 800g"→{にんじん,800,g} */
+function parseHarvestTitle(str){
+  var s=String(str==null?'':str);
+  s=s.replace(/[Ａ-Ｚａ-ｚ０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);});
+  s=s.replace(/[←-⇿☀-➿⬀-⯿️\uD800-\uDFFF]/g,''); // 絵文字除去
+  s=s.replace(/[　\t]+/g,' ').replace(/^\s+|\s+$/g,'');
+  s=s.replace(/^(収穫|しゅうかく|harvest)[\s:：・\-]*/i,'');
+  var m=s.match(/([0-9]+(?:\.[0-9]+)?)\s*(kg|kgs|キロ|g|グラム|t|個|コ|玉|本|束|袋|株|箱|把|房|パック)?\.?\s*$/i);
+  var qty=0,unit='',name=s;
+  if(m&&m.index>0){qty=parseFloat(m[1])||0;unit=normUnit(m[2]||'');name=s.slice(0,m.index);}
+  return {item:name.replace(/\s+/g,'').trim(),qty:qty,unit:unit};
+}
+/* 1レコードを正規化：構造化{item,qty,unit}でも、生タイトル{title}／{item:"トマト 3個"}でも受ける */
+function recFields(r){
+  var item,qty,unit;
+  if(r.item!=null&&r.item!==''&&r.qty!=null&&r.qty!==''){item=r.item;qty=+r.qty||0;unit=r.unit||'';}
+  else{var raw=(r.title!=null&&r.title!=='')?r.title:(r.item||'');var p=parseHarvestTitle(raw);
+    item=p.item;qty=(r.qty!=null&&r.qty!=='')?(+r.qty||0):p.qty;unit=(r.unit!=null&&r.unit!=='')?r.unit:p.unit;}
+  var n=normQU(qty,unit);return {item:canonItem(item),qty:n.qty,unit:n.unit};
+}
 /* iCloud同期(harvest.json:ショートカット生成)＋手動記録をひとつの配列に（カナ・単位を正規化） */
 function allHarvest(){
   var out=[];
-  (harvestSync||[]).forEach(function(r){var q=normQU(r.qty,r.unit||'');out.push({kind:r.kind==='plan'?'plan':'done',date:r.date||'',item:canonItem(r.item||''),qty:q.qty,unit:q.unit,note:r.note||'',src:r.source||'iCloud'});});
+  (harvestSync||[]).forEach(function(r){var f=recFields(r);out.push({kind:r.kind==='plan'?'plan':'done',date:r.date||'',item:f.item,qty:f.qty,unit:f.unit,note:r.note||'',src:r.source||'iCloud'});});
   (state.harvests||[]).forEach(function(r){if(!r.item&&!(+r.qty))return;var q=normQU(r.qty,r.unit||'');out.push({kind:'done',date:r.date||'',item:canonItem(itemName(r.item)),qty:q.qty,unit:q.unit,note:r.note||'',src:'手動'});});
   return out;
 }
@@ -767,7 +789,7 @@ function renderHarvestTodo(){
   var cards=[];
   (harvestSync||[]).forEach(function(r){if(r.kind!=='plan')return; // 日付なしの予定もラフに拾う（あろさんの実運用）
     if(r.date&&(r.date<t0s||r.date>t7s))return;
-    var q=normQU(r.qty,r.unit||'');cards.push({ripe:false,item:canonItem(r.item||''),date:r.date||'',qty:q.qty,unit:q.unit});});
+    var f=recFields(r);cards.push({ripe:false,item:f.item,date:r.date||'',qty:f.qty,unit:f.unit});});
   var ripe={};
   state.plots.forEach(function(p){ // 区画由来の"収穫期"は、その畑で生育を実際に追い始めた場合だけ（全マス同一ステージ＝初期状態はスキップ）
     var planted=p.cells.filter(function(c){return c&&!SPECIAL[c.t];});if(planted.length<2)return;
