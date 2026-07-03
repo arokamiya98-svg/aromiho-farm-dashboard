@@ -185,6 +185,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <button data-tab="sched">📅 スケジュール</button>
   <button data-tab="policy">🧭 方針</button>
   <button data-tab="weather">🌤 天気</button>
+  <button data-tab="analysis">📊 分析</button>
 </nav>
 
 <main>
@@ -384,6 +385,24 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <p class="note">取得項目：日別の最高/最低気温・降水量・日射量。→ いずれ積算温度(GDD)や晩霜/初霜の分析にも展開できる。</p>
     </div>
   </section>
+
+  <!-- 分析 -->
+  <section id="tab-analysis">
+    <div class="card">
+      <h2>積算温度(GDD)で生育予測</h2>
+      <p class="note"><b>播種/定植日を入れるだけ</b>で、柏崎の日別気温から<b>積算温度</b>を計算 → 「収穫適期まであと約◯日」の目安が出る。基準℃・目標GDDは品目ごとの初期値（＝入力は日付だけでOK・あとで調整可）。<br>💡 積算温度＝毎日の平均気温から基準温度を引いて足し上げた値。作物の生育スピードの物差し。※気温は Open-Meteo アーカイブ（数日遅れ）。</p>
+      <div class="row" style="align-items:center;gap:8px">
+        <button class="addbtn" onclick="loadGDD(true)">↻ 気温を再取得</button>
+        <span class="note" id="gddMsg" style="margin:0;padding:6px 10px"></span>
+      </div>
+      <table class="data" id="gddTbl"></table>
+    </div>
+    <div class="card">
+      <h2>収穫 × 気象（振り返り）</h2>
+      <p class="note">収穫実績が貯まると、この下に「穫れた時期の気温・降水」を並べて、豊作/不作の傾向が見えるようにする予定。<b>橋（ショートカット）で実績が流れ込むほど濃くなるゾーン。</b></p>
+      <div id="gddHarvest" class="bar-empty">収穫データ（harvest.json）待ち。まずは実績を積もう。</div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -397,6 +416,8 @@ var GROUPS={
   makomo:{label:'水田・水場',color:'#6fa3c9'}
 };
 var SPECIAL={ path:{label:'通路・畦',color:'#e4dccb'}, empty:{label:'空き（消す）',color:'#f4f1e9'} };
+/* GDD（積算温度）品目グループ別の初期値：base=基準温度℃ / target=収穫までの目安積算℃ */
+var GDD_DEF={summer:{base:10,target:1000},bean:{base:8,target:700},winter:{base:5,target:1000},leaf:{base:5,target:450},base:{base:7,target:1100},makomo:{base:10,target:1600}};
 var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🌱',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾'};
 function emo(id){return EMOJI[id]||'🌱';}
 var STAGES=[{e:'🫘',l:'種・植付'},{e:'🌱',l:'発芽'},{e:'🪴',l:'苗'},{e:'🌿',l:'生育'},{e:'🌼',l:'結実'},{e:null,l:'収穫期'},{e:'✅',l:'収穫済'}];
@@ -939,6 +960,7 @@ function activateTab(name){
   var el=document.getElementById('tab-'+name);if(el)el.classList.add('active');
   if(name==='weather')loadWeather(); // 遅延ロード：天気タブを開いた時だけ取得（キャッシュがあれば即描画）
   if(name==='harvest')loadHarvestSync(); // 収穫タブを開いた時だけiCloud同期(harvest.json)を取り込む
+  if(name==='analysis')loadGDD(); // 分析タブ：積算温度を計算（気温アーカイブを遅延取得）
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
   b.onclick=function(){activateTab(b.dataset.tab);location.hash=b.dataset.tab;};
@@ -1051,6 +1073,60 @@ async function downloadArchive(){
     a.href=URL.createObjectURL(blob);a.download='kashiwazaki_weather_'+s+'_'+e+'.csv';a.click();
   }catch(err){alert('取得に失敗：'+err.message);}
 }
+
+/* ===== 分析：積算温度(GDD) ===== */
+var gddCache=null;
+function gddParams(it){var def=GDD_DEF[it.group]||{base:5,target:900};return {base:(it.gbase!=null&&it.gbase!==''?+it.gbase:def.base),target:(it.gtarget!=null&&it.gtarget!==''?+it.gtarget:def.target)};}
+function computeGDD(daily,sow,base){ // sow(YYYY-MM-DD)以降の日別平均気温から積算温度
+  if(!daily||!daily.time)return null;
+  var acc=0,recent=[];
+  for(var i=0;i<daily.time.length;i++){
+    if(daily.time[i]<sow)continue;
+    var tx=daily.temperature_2m_max[i],tn=daily.temperature_2m_min[i];
+    if(tx==null||tn==null)continue;
+    var g=Math.max(0,(tx+tn)/2-base);acc+=g;recent.push(g);
+  }
+  var last=recent.slice(-7),pace=last.length?last.reduce(function(a,b){return a+b;},0)/last.length:0;
+  return {acc:acc,days:recent.length,pace:pace};
+}
+async function loadGDD(force){
+  if(!document.getElementById('gddTbl'))return;
+  renderGDD(gddCache?gddCache.daily:null); // 即・入力テーブル表示
+  var tracked=state.items.filter(function(it){return it.sow;});
+  var msg=document.getElementById('gddMsg');
+  if(!tracked.length){if(msg)msg.textContent='↑ 品目の「播種/定植日」を入れると、その品目の積算温度と収穫予測が出ます。';return;}
+  var minSow=tracked.reduce(function(a,b){return b.sow<a?b.sow:a;},tracked[0].sow);
+  var today=new Date().toISOString().slice(0,10);
+  if(!force&&gddCache&&gddCache.start===minSow&&(Date.now()-gddCache.time)<600000){renderGDD(gddCache.daily);return;}
+  if(msg)msg.textContent='気温データ取得中…';
+  var u='https://archive-api.open-meteo.com/v1/archive?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
+    '&start_date='+minSow+'&end_date='+today+'&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo';
+  try{var d=await fetchJSON(u,15000);gddCache={start:minSow,time:Date.now(),daily:d.daily};renderGDD(d.daily);
+    if(msg)msg.textContent='気温データ：'+((d.daily&&d.daily.time)?d.daily.time.length:0)+'日ぶん（Open-Meteoアーカイブ '+minSow+'〜）';
+  }catch(e){if(msg)msg.textContent='気温データ取得に失敗：'+wxErr(e)+'（アーカイブは数日遅れ）';}
+}
+function renderGDD(daily){
+  var t=document.getElementById('gddTbl');if(!t)return;
+  var h='<tr><th>品目</th><th>播種/定植日</th><th class="n">基準℃</th><th class="n">目標GDD</th><th>生育の進み → 収穫予測</th></tr>';
+  state.items.forEach(function(it,idx){
+    var p=gddParams(it),res=(it.sow&&daily)?computeGDD(daily,it.sow,p.base):null,cell;
+    if(!it.sow){cell='<span style="color:var(--muted)">播種日を入れると予測が出る</span>';}
+    else if(!res){cell='<span style="color:var(--muted)">気温取得待ち…</span>';}
+    else{
+      var pct=Math.min(100,Math.round(res.acc/p.target*100)),rem=Math.max(0,p.target-res.acc);
+      var eta=res.pace>0?Math.ceil(rem/res.pace):null,col=itemMeta(it.name).color;
+      cell='<div class="bar-row" style="margin:0"><div class="bar-track" style="max-width:150px"><div class="bar-fill" style="width:'+pct+'%;background:'+col+'"></div></div><div class="bar-val" style="width:auto">'+Math.round(res.acc)+'/'+p.target+'℃ ('+pct+'%)</div></div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+(rem<=0?'🎉 目標到達＝収穫適期の目安':('収穫適期まで '+(eta!=null?('約'+eta+'日（今の気温ペース）'):'—')))+'</div>';
+    }
+    h+='<tr><td>'+emo(it.id)+' '+esc(it.name)+'</td>'+
+      '<td><input type="date" value="'+esc(it.sow||'')+'" onchange="upGdd('+idx+',\'sow\',this.value)"></td>'+
+      '<td class="n"><input class="n" type="number" step="0.5" value="'+p.base+'" onchange="upGdd('+idx+',\'gbase\',this.value)"></td>'+
+      '<td class="n"><input class="n" type="number" value="'+p.target+'" onchange="upGdd('+idx+',\'gtarget\',this.value)"></td>'+
+      '<td>'+cell+'</td></tr>';
+  });
+  t.innerHTML=h;
+}
+function upGdd(i,k,v){state.items[i][k]=v;save();if(k==='sow')loadGDD(true);else renderGDD(gddCache?gddCache.daily:null);}
 
 /* 入出力 */
 function doExport(){
