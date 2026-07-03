@@ -317,7 +317,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
         <span>緯度</span><input id="geoLat" class="wg" type="number" step="0.001">
         <span>経度</span><input id="geoLon" class="wg" type="number" step="0.001">
         <button class="addbtn" onclick="applyGeo()">この地点で更新</button>
-        <button class="addbtn" onclick="loadWeather()">↻ 再読み込み</button>
+        <button class="addbtn" onclick="loadWeather(true)">↻ 再読み込み</button>
       </div>
       <div id="wxNow" class="wxnow"></div>
       <h3>週間予報</h3>
@@ -749,6 +749,7 @@ function activateTab(name){
   Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(x){x.classList.toggle('active',x.dataset.tab===name);});
   Array.prototype.forEach.call(document.querySelectorAll('main section'),function(x){x.classList.remove('active');});
   var el=document.getElementById('tab-'+name);if(el)el.classList.add('active');
+  if(name==='weather')loadWeather(); // 遅延ロード：天気タブを開いた時だけ取得（キャッシュがあれば即描画）
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
   b.onclick=function(){activateTab(b.dataset.tab);location.hash=b.dataset.tab;};
@@ -770,23 +771,39 @@ function initGeoInputs(){
   var t=new Date(),y=new Date(t.getTime()-30*864e5),as=document.getElementById('arcStart'),ae=document.getElementById('arcEnd');
   if(ae)ae.value=t.toISOString().slice(0,10);if(as)as.value=y.toISOString().slice(0,10);
 }
-function applyGeo(){state.geo.lat=+document.getElementById('geoLat').value;state.geo.lon=+document.getElementById('geoLon').value;state.geo.name='指定地点';save();loadWeather();}
-async function loadWeather(){
-  var msg=document.getElementById('wxMsg');if(!msg)return;msg.textContent='読み込み中…';
-  loadRainCalendar();
+function applyGeo(){state.geo.lat=+document.getElementById('geoLat').value;state.geo.lon=+document.getElementById('geoLon').value;state.geo.name='指定地点';save();loadWeather(true);}
+var wxCache=null; // {lat,lon,time,c,dd,ti} ＝10分メモリキャッシュ（タブ往復で再取得しない）
+function wxTodayISO(){return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Tokyo'});}
+async function loadWeather(force){
+  var msg=document.getElementById('wxMsg');if(!msg)return;
+  var rmsg=document.getElementById('rainMsg');
+  // 10分以内・同地点ならキャッシュを即描画（ネット往復なし）
+  if(!force&&wxCache&&wxCache.lat===state.geo.lat&&wxCache.lon===state.geo.lon&&(Date.now()-wxCache.time)<600000){
+    renderWx(wxCache.c,wxCache.dd,wxCache.ti,true);return;
+  }
+  msg.textContent='読み込み中…';if(rmsg)rmsg.textContent='読み込み中…';
+  // ★現況＋過去31日＋週間予報を1リクエストに統合（往復を2回→1回に）
   var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m'+
-    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia%2FTokyo&forecast_days=7';
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum'+
+    '&past_days=31&forecast_days=7&timezone=Asia%2FTokyo';
   try{
-    var d=await fetchJSON(u),c=d.current,w=wmo(c.weather_code);
-    document.getElementById('wxNow').innerHTML='<span class="big">'+w[0]+'</span><span class="t">'+Math.round(c.temperature_2m)+'°C</span><span class="m">'+w[1]+'<br>湿度 '+c.relative_humidity_2m+'%　降水 '+c.precipitation+'mm　風 '+c.wind_speed_10m+'m/s</span>';
-    var dd=d.daily,h='',wd=['日','月','火','水','木','金','土'];
-    for(var i=0;i<dd.time.length;i++){var ww=wmo(dd.weather_code[i]),dt=new Date(dd.time[i]);
-      h+='<div class="wxday"><div class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+wd[dt.getDay()]+')</div><div class="i">'+ww[0]+'</div><div><span class="hi">'+Math.round(dd.temperature_2m_max[i])+'°</span>/<span class="lo">'+Math.round(dd.temperature_2m_min[i])+'°</span></div><div class="d">☔'+dd.precipitation_sum[i]+'mm</div></div>';
-    }
-    document.getElementById('wxWeek').innerHTML=h;
-    msg.textContent='地点：'+state.geo.name+'（'+state.geo.lat+', '+state.geo.lon+'）／ データ：Open-Meteo';
-  }catch(e){msg.textContent='天気の取得に失敗：'+wxErr(e);}
+    var d=await fetchJSON(u),c=d.current,dd=d.daily;
+    var ti=dd.time.indexOf(wxTodayISO());if(ti<0)ti=Math.min(31,dd.time.length-1); // 今日の位置
+    wxCache={lat:state.geo.lat,lon:state.geo.lon,time:Date.now(),c:c,dd:dd,ti:ti};
+    renderWx(c,dd,ti,false);
+  }catch(e){msg.textContent='天気の取得に失敗：'+wxErr(e);if(rmsg)rmsg.textContent='雨カレンダーの取得に失敗：'+wxErr(e);}
+}
+function renderWx(c,dd,ti,cached){
+  var w=wmo(c.weather_code);
+  document.getElementById('wxNow').innerHTML='<span class="big">'+w[0]+'</span><span class="t">'+Math.round(c.temperature_2m)+'°C</span><span class="m">'+w[1]+'<br>湿度 '+c.relative_humidity_2m+'%　降水 '+c.precipitation+'mm　風 '+c.wind_speed_10m+'m/s</span>';
+  var h='',wd=['日','月','火','水','木','金','土']; // 週間予報＝今日から7日ぶんを切り出し
+  for(var i=ti;i<Math.min(ti+7,dd.time.length);i++){var ww=wmo(dd.weather_code[i]),dt=new Date(dd.time[i]+'T00:00:00');
+    h+='<div class="wxday"><div class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+wd[dt.getDay()]+')</div><div class="i">'+ww[0]+'</div><div><span class="hi">'+Math.round(dd.temperature_2m_max[i])+'°</span>/<span class="lo">'+Math.round(dd.temperature_2m_min[i])+'°</span></div><div class="d">☔'+dd.precipitation_sum[i]+'mm</div></div>';
+  }
+  document.getElementById('wxWeek').innerHTML=h;
+  document.getElementById('wxMsg').textContent='地点：'+state.geo.name+'（'+state.geo.lat+', '+state.geo.lon+'）／ データ：Open-Meteo'+(cached?'（保存済みを表示）':'');
+  renderRainCal(dd,ti);
 }
 function rainColor(mm){
   if(mm<0.1)return '#f6f2e8';   // 雨なし＝紙色
@@ -797,17 +814,15 @@ function rainColor(mm){
   if(mm<40)return '#5591c9';
   return '#3d73b0';
 }
-async function loadRainCalendar(){
+function renderRainCal(dd,ti){ // 統合レスポンスの日次配列から「過去31日＋今日」を切り出して描画
   var cal=document.getElementById('rainCal');if(!cal)return;
-  var msg=document.getElementById('rainMsg');msg.textContent='読み込み中…';
-  var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
-    '&daily=weather_code,precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=31&forecast_days=1&timezone=Asia%2FTokyo';
+  var msg=document.getElementById('rainMsg');
   try{
-    var d=await fetchJSON(u),dl=d.daily;if(!dl)throw new Error('データなし');
-    var days=[];for(var i=0;i<dl.time.length;i++){
-      days.push({iso:dl.time[i],dt:new Date(dl.time[i]+'T00:00:00'),code:dl.weather_code[i],
-        mm:dl.precipitation_sum[i]||0,tmax:dl.temperature_2m_max[i],tmin:dl.temperature_2m_min[i]});
+    var days=[];for(var i=0;i<=ti&&i<dd.time.length;i++){
+      days.push({iso:dd.time[i],dt:new Date(dd.time[i]+'T00:00:00'),code:dd.weather_code[i],
+        mm:dd.precipitation_sum[i]||0,tmax:dd.temperature_2m_max[i],tmin:dd.temperature_2m_min[i]});
     }
+    if(!days.length){if(msg)msg.textContent='雨カレンダー：データがありません';return;}
     var total=days.reduce(function(a,b){return a+b.mm;},0);
     var rainy=days.filter(function(x){return x.mm>=1;}).length;
     var heavy=days.filter(function(x){return x.mm>=10;}).length;
@@ -873,8 +888,8 @@ async function boot(){
   if(!localStorage.getItem(KEY)){
     try{var r=await fetch('data.json',{cache:'no-store'});if(r.ok){var s=normalize(await r.json());if(s)state=s;}}catch(e){}
   }
-  renderAll();bindGrid();initGeoInputs();loadWeather();
-  if(location.hash)activateTab(location.hash.slice(1));
+  renderAll();bindGrid();initGeoInputs();
+  if(location.hash)activateTab(location.hash.slice(1)); // 天気タブへのディープリンク時のみ天気を読み込む
   save();
 }
 boot();
