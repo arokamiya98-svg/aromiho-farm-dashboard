@@ -75,6 +75,8 @@ table.data td.n{text-align:right;font-variant-numeric:tabular-nums}
 table.data input{border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-size:13px;
   font-family:inherit;width:100%;background:#fff}
 table.data input.n{text-align:right}
+table.data select{border:1px solid var(--line);border-radius:5px;padding:3px 4px;font-size:13px;font-family:inherit;width:100%;background:#fff}
+td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
 .chip-g{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .del{color:#b5563f;cursor:pointer;font-size:12px;border:none;background:none}
 .addbtn{margin-top:8px;background:var(--soft);border:1px dashed var(--line);border-radius:7px;
@@ -159,6 +161,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 <nav>
   <button data-tab="plot" class="active">🟩 区画</button>
   <button data-tab="budget">💰 品目・予算</button>
+  <button data-tab="harvest">🌾 収穫</button>
   <button data-tab="sched">📅 スケジュール</button>
   <button data-tab="policy">🧭 方針</button>
   <button data-tab="weather">🌤 天気</button>
@@ -211,22 +214,48 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 
   <!-- 予算 -->
   <section id="tab-budget">
+    <div class="toolbar">
+      <div class="modebar" id="budgetBar">
+        <button data-bview="est" onclick="setBudgetView('est')">📝 見積</button>
+        <button data-bview="act" onclick="setBudgetView('act')">🧾 実績</button>
+      </div>
+      <span class="note" id="budgetViewHint" style="margin:0;padding:6px 10px"></span>
+    </div>
     <div class="card">
-      <h2>品目マスタ（種苗費）</h2>
+      <h2 id="itemH2">品目マスタ（種苗費）</h2>
       <p class="note" id="budgetHint"></p>
       <table class="data" id="itemTbl"></table>
       <button class="addbtn" onclick="addItem()">＋ 品目を追加</button>
     </div>
     <div class="card">
       <h2>道具・資材（初年度）</h2>
-      <p class="note">初年度だけかかる初期投資。ここは「開業費の弾」＝レシート保管対象（3年戦略と直結）。2年目以降は消耗品のみ。</p>
+      <p class="note">初年度だけかかる初期投資。ここは「開業費の弾」＝レシート保管対象（3年戦略と直結）。2年目以降は消耗品のみ。<b>「🧾実績」に切り替えると実際に買った額を入れられる</b>（レシート管理）。</p>
       <table class="data" id="toolTbl"></table>
       <button class="addbtn" onclick="addTool()">＋ 道具を追加</button>
     </div>
     <div class="card">
-      <h2>初年度サマリ</h2>
+      <h2>初年度サマリ（予実）</h2>
       <div class="kpi" id="kpi"></div>
-      <p class="note">💡 二人の野菜自給で<b>年 約10万円の食費削減</b>を見込むと、初年度の種苗＋道具は<b>初年度でほぼ回収、2年目以降は完全に黒字</b>。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
+      <p class="note">💡 <b>見積＝計画、実績＝実際にかかった額。</b>差額がマイナス（実績＜見積）なら計画より安く上がった証。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
+    </div>
+  </section>
+
+  <!-- 収穫 -->
+  <section id="tab-harvest">
+    <div class="card">
+      <h2>収穫ログ</h2>
+      <p class="note">穫れた日・品目・量を1行ずつ記録。区画で「✅収穫済」にしたマスとあわせて、"いつ・何が・どれだけ"穫れたかを貯める。将来この記録×天気で豊作／不作の分析に。</p>
+      <table class="data" id="harvestTbl"></table>
+      <button class="addbtn" onclick="addHarvest()">＋ 収穫を記録</button>
+    </div>
+    <div class="card">
+      <h2>品目ごとの累計</h2>
+      <table class="data" id="harvestSumTbl"></table>
+    </div>
+    <div class="card">
+      <h2>区画で「✅収穫済」の面積</h2>
+      <p class="note">区画タブで生育ステージを「✅収穫済」まで進めたマスの集計（1マス=1㎡）。収穫ログの裏づけ・進み具合の目安に。</p>
+      <table class="data" id="harvestPlotTbl"></table>
     </div>
   </section>
 
@@ -364,7 +393,8 @@ var DEFAULT={
     {name:'誘引資材（マイカ線ほか）',cost:1500},
     {name:'もみ殻・堆肥（土づくり）',cost:3000},
     {name:'収穫カゴ・コンテナ',cost:2500}
-  ]
+  ],
+  harvests:[]
 };
 
 /* ===== 畑（プロット）生成 ===== */
@@ -398,7 +428,8 @@ function defaultPlots(){
 function freshState(){var d=JSON.parse(JSON.stringify(DEFAULT));d.plots=defaultPlots();d.activePlot='main';return d;}
 
 /* ===== 状態 ===== */
-var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', viewMap='layout', painting=false, undoStack=[];
+var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', viewMap='layout', budgetView='est', painting=false, undoStack=[];
+var UNITS=['kg','g','個','本','束','袋','株','箱','把'];
 /* 生育図の色＝進み具合（薄い＝種／濃い緑＝収穫期／灰＝収穫済） */
 var STAGE_COLORS=['#f0e9da','#e2ead0','#cfe0b4','#aecb86','#8bb668','#5f9e4a','#c9c5b8'];
 function migrateCells(arr){return arr.map(function(v){if(v==='path')return {t:'path'};if(v==='empty'||!v)return {t:'empty'};return {t:v,s:5};});}
@@ -413,6 +444,8 @@ function normalize(s){
   if(!s.activePlot||!s.plots.some(function(p){return p.id===s.activePlot;}))s.activePlot=s.plots[0].id;
   if(!s.geo)s.geo={lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'};
   if(!s.items.some(function(x){return x.id==='rice';}))s.items.push(riceItem());
+  if(!Array.isArray(s.harvests))s.harvests=[];
+  if(!s.tools)s.tools=[];
   return s;
 }
 function load(){
@@ -545,50 +578,148 @@ function renderArea(){
 }
 
 /* ===== 予算 ===== */
+/* 予実サブタブ */
+function setBudgetView(v){budgetView=v;applyBudgetView();renderItems();renderTools();}
+function applyBudgetView(){
+  Array.prototype.forEach.call(document.querySelectorAll('#budgetBar button'),function(b){b.classList.toggle('on',b.dataset.bview===budgetView);});
+  var est=budgetView==='est';
+  var h2=document.getElementById('itemH2');if(h2)h2.textContent=est?'品目マスタ（見積種苗費）':'品目マスタ（実績＝実際に買った額）';
+  var hint=document.getElementById('budgetViewHint');if(hint)hint.textContent=est?'見積：計画した種苗費・道具費を入力':'実績：実際にかかった額を入力（見積との差も表示）';
+}
+function diffCell(act,est){var d=(+act||0)-(+est||0);var cls=d>0?'over':d<0?'under':'';var s=d>0?'+':'';return '<td class="n diff '+cls+'">'+(d===0?'—':s+yen(d))+'</td>';}
 function renderItems(){
-  var t=document.getElementById('itemTbl'),p=curPlot(),count={};
+  var t=document.getElementById('itemTbl'),p=curPlot(),count={},est=budgetView==='est';
   p.cells.forEach(function(c){var id=cellId(c);count[id]=(count[id]||0)+1;});
   document.getElementById('budgetHint').textContent='「配置㎡」は今表示中の畑「'+p.name+'」での面積です。';
-  var h='<tr><th>品目</th><th>グループ</th><th>配置㎡</th><th>買い方</th><th>種苗費(円)</th><th></th></tr>';
+  var h=est
+    ? '<tr><th>品目</th><th>グループ</th><th>配置㎡</th><th>買い方</th><th>見積 種苗費(円)</th><th></th></tr>'
+    : '<tr><th>品目</th><th>配置㎡</th><th>見積(円)</th><th>実績 種苗費(円)</th><th>差</th><th></th></tr>';
   state.items.forEach(function(it,idx){
-    h+='<tr>'+
-      '<td><span style="margin-right:4px">'+emo(it.id)+'</span><input style="width:calc(100% - 24px)" value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>'+
-      '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
-      '<td class="n">'+(count[it.id]||0)+'</td>'+
-      '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
-      '<td class="n"><input class="n" type="number" value="'+it.seed+'" onchange="upItem('+idx+',\'seed\',+this.value)"></td>'+
-      '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
+    var nm='<td><span style="margin-right:4px">'+emo(it.id)+'</span><input style="width:calc(100% - 24px)" value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>';
+    if(est){
+      h+='<tr>'+nm+
+        '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
+        '<td class="n">'+(count[it.id]||0)+'</td>'+
+        '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
+        '<td class="n"><input class="n" type="number" value="'+(+it.seed||0)+'" onchange="upItem('+idx+',\'seed\',+this.value)"></td>'+
+        '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
+    }else{
+      h+='<tr>'+nm+
+        '<td class="n">'+(count[it.id]||0)+'</td>'+
+        '<td class="n" style="color:var(--muted)">'+yen(+it.seed||0)+'</td>'+
+        '<td class="n"><input class="n" type="number" value="'+(+it.act||0)+'" onchange="upItem('+idx+',\'act\',+this.value)"></td>'+
+        diffCell(it.act,it.seed)+
+        '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
+    }
   });
-  var seedTotal=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
-  h+='<tr style="border-top:2px solid var(--line)"><td class="total">種苗費 合計</td><td colspan="3"></td><td class="n total">'+yen(seedTotal)+'</td><td></td></tr>';
+  var seedTot=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
+  var actTot=state.items.reduce(function(a,b){return a+(+b.act||0);},0);
+  if(est){
+    h+='<tr style="border-top:2px solid var(--line)"><td class="total">見積 種苗費 合計</td><td colspan="3"></td><td class="n total">'+yen(seedTot)+'</td><td></td></tr>';
+  }else{
+    h+='<tr style="border-top:2px solid var(--line)"><td class="total">実績 種苗費 合計</td><td></td><td class="n" style="color:var(--muted)">'+yen(seedTot)+'</td><td class="n total">'+yen(actTot)+'</td>'+diffCell(actTot,seedTot)+'<td></td></tr>';
+  }
   t.innerHTML=h;
 }
 function renderTools(){
-  var t=document.getElementById('toolTbl'),h='<tr><th>道具・資材</th><th>費用(円)</th><th></th></tr>';
+  var t=document.getElementById('toolTbl'),est=budgetView==='est';
+  var h=est?'<tr><th>道具・資材</th><th>見積 費用(円)</th><th></th></tr>'
+           :'<tr><th>道具・資材</th><th>見積(円)</th><th>実績 費用(円)</th><th>差</th><th></th></tr>';
   state.tools.forEach(function(to,idx){
-    h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
-      '<td class="n"><input class="n" type="number" value="'+to.cost+'" onchange="upTool('+idx+',\'cost\',+this.value)"></td>'+
-      '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
+    if(est){
+      h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
+        '<td class="n"><input class="n" type="number" value="'+(+to.cost||0)+'" onchange="upTool('+idx+',\'cost\',+this.value)"></td>'+
+        '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
+    }else{
+      h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
+        '<td class="n" style="color:var(--muted)">'+yen(+to.cost||0)+'</td>'+
+        '<td class="n"><input class="n" type="number" value="'+(+to.act||0)+'" onchange="upTool('+idx+',\'act\',+this.value)"></td>'+
+        diffCell(to.act,to.cost)+
+        '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
+    }
   });
-  var tt=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
-  h+='<tr style="border-top:2px solid var(--line)"><td class="total">道具・資材 合計</td><td class="n total">'+yen(tt)+'</td><td></td></tr>';
+  var costTot=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  var actTot=state.tools.reduce(function(a,b){return a+(+b.act||0);},0);
+  if(est){
+    h+='<tr style="border-top:2px solid var(--line)"><td class="total">見積 合計</td><td class="n total">'+yen(costTot)+'</td><td></td></tr>';
+  }else{
+    h+='<tr style="border-top:2px solid var(--line)"><td class="total">実績 合計</td><td class="n" style="color:var(--muted)">'+yen(costTot)+'</td><td class="n total">'+yen(actTot)+'</td>'+diffCell(actTot,costTot)+'<td></td></tr>';
+  }
   t.innerHTML=h;
 }
 function renderKpi(){
-  var seed=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
-  var tool=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  var seedEst=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
+  var toolEst=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  var seedAct=state.items.reduce(function(a,b){return a+(+b.act||0);},0);
+  var toolAct=state.tools.reduce(function(a,b){return a+(+b.act||0);},0);
+  var est=seedEst+toolEst,act=seedAct+toolAct,diff=act-est;
+  var dcol=diff>0?'#b5563f':diff<0?'var(--green-d)':'var(--muted)',ds=diff>0?'+':'';
   document.getElementById('kpi').innerHTML=
-    '<div><b>'+yen(seed)+'</b><span>種苗費 / 年</span></div>'+
-    '<div><b>'+yen(tool)+'</b><span>道具・資材（初年度のみ）</span></div>'+
-    '<div><b>'+yen(seed+tool)+'</b><span>初年度 合計</span></div>'+
-    '<div><b>約10万</b><span>見込む食費削減 / 年</span></div>';
+    '<div><b>'+yen(est)+'</b><span>見積 合計（種苗+道具）</span></div>'+
+    '<div><b>'+yen(act)+'</b><span>実績 合計</span></div>'+
+    '<div><b style="color:'+dcol+'">'+(diff===0?'—':ds+yen(diff))+'</b><span>差額（実績−見積）</span></div>';
 }
-function upItem(i,k,v){state.items[i][k]=v;save();if(k==='seed'){renderKpi();renderItems();}}
+function upItem(i,k,v){state.items[i][k]=v;save();if(k==='seed'||k==='act'){renderKpi();renderItems();}}
 function delItem(i){if(!confirm('「'+state.items[i].name+'」を削除しますか？'))return;state.items.splice(i,1);renderAll();save();}
-function addItem(){state.items.push({id:'item'+Date.now(),name:'新しい品目',group:'leaf',buy:'',seed:0,sch:{}});renderAll();save();}
+function addItem(){state.items.push({id:'item'+Date.now(),name:'新しい品目',group:'leaf',buy:'',seed:0,act:0,sch:{}});renderAll();save();}
 function upTool(i,k,v){state.tools[i][k]=v;save();renderKpi();renderTools();}
 function delTool(i){state.tools.splice(i,1);renderTools();renderKpi();save();}
-function addTool(){state.tools.push({name:'新しい道具',cost:0});renderTools();save();}
+function addTool(){state.tools.push({name:'新しい道具',cost:0,act:0});renderTools();save();}
+
+/* ===== 収穫 ===== */
+function itemSelect(sel,idx){
+  var h='<select onchange="upHarvest('+idx+',\'item\',this.value)"><option value=""'+(!sel?' selected':'')+'>—品目—</option>';
+  state.items.forEach(function(it){h+='<option value="'+it.id+'"'+(sel===it.id?' selected':'')+'>'+emo(it.id)+' '+esc(it.name)+'</option>';});
+  return h+'</select>';
+}
+function unitSelect(sel,idx){
+  var h='<select onchange="upHarvest('+idx+',\'unit\',this.value)">';
+  if(sel&&UNITS.indexOf(sel)<0)h+='<option selected>'+esc(sel)+'</option>';
+  UNITS.forEach(function(u){h+='<option'+(sel===u?' selected':'')+'>'+u+'</option>';});
+  return h+'</select>';
+}
+function renderHarvest(){
+  var t=document.getElementById('harvestTbl');if(!t)return;
+  var h='<tr><th>日付</th><th>品目</th><th class="n">量</th><th>単位</th><th>メモ</th><th></th></tr>';
+  if(!state.harvests.length)h+='<tr><td colspan="6" style="color:var(--muted)">まだ記録がありません。「＋ 収穫を記録」から。</td></tr>';
+  state.harvests.forEach(function(r,idx){
+    h+='<tr>'+
+      '<td><input type="date" value="'+esc(r.date||'')+'" onchange="upHarvest('+idx+',\'date\',this.value)"></td>'+
+      '<td>'+itemSelect(r.item,idx)+'</td>'+
+      '<td class="n"><input class="n" type="number" step="0.1" value="'+(+r.qty||0)+'" onchange="upHarvest('+idx+',\'qty\',+this.value)"></td>'+
+      '<td>'+unitSelect(r.unit,idx)+'</td>'+
+      '<td><input value="'+esc(r.note||'')+'" onchange="upHarvest('+idx+',\'note\',this.value)"></td>'+
+      '<td><button class="del" onclick="delHarvest('+idx+')">削除</button></td></tr>';
+  });
+  t.innerHTML=h;
+  renderHarvestSum();renderHarvestPlot();
+}
+function renderHarvestSum(){
+  var t=document.getElementById('harvestSumTbl');if(!t)return;
+  var agg={},cnt={};
+  state.harvests.forEach(function(r){if(!r.item)return;var k=r.item+'|'+(r.unit||'');agg[k]=(agg[k]||0)+(+r.qty||0);cnt[k]=(cnt[k]||0)+1;});
+  var keys=Object.keys(agg).sort();
+  var h='<tr><th>品目</th><th class="n">累計</th><th class="n">記録数</th></tr>';
+  if(!keys.length){h+='<tr><td colspan="3" style="color:var(--muted)">—</td></tr>';}
+  keys.forEach(function(k){var p=k.split('|'),it=itemById(p[0]);
+    h+='<tr><td>'+(it?emo(it.id)+' '+esc(it.name):esc(p[0]))+'</td><td class="n total">'+(Math.round(agg[k]*10)/10)+' '+esc(p[1])+'</td><td class="n">'+cnt[k]+'</td></tr>';
+  });
+  t.innerHTML=h;
+}
+function renderHarvestPlot(){
+  var t=document.getElementById('harvestPlotTbl');if(!t)return;
+  var cnt={},total=0;
+  state.plots.forEach(function(p){p.cells.forEach(function(c){if(!c||SPECIAL[c.t])return;if((c.s||0)>=6){cnt[c.t]=(cnt[c.t]||0)+1;total++;}});});
+  var keys=Object.keys(cnt);
+  var h='<tr><th>品目</th><th class="n">収穫済 ㎡</th></tr>';
+  if(!keys.length){h+='<tr><td colspan="2" style="color:var(--muted)">まだ「✅収穫済」のマスがありません（区画タブの🌱生育で最終段階まで進めると集計されます）</td></tr>';}
+  keys.forEach(function(id){var it=itemById(id);h+='<tr><td>'+(it?emo(id)+' '+esc(it.name):esc(id))+'</td><td class="n">'+cnt[id]+'</td></tr>';});
+  if(keys.length)h+='<tr style="border-top:2px solid var(--line)"><td class="total">合計</td><td class="n total">'+total+' ㎡</td></tr>';
+  t.innerHTML=h;
+}
+function addHarvest(){state.harvests.push({id:'h'+Date.now(),date:new Date().toISOString().slice(0,10),item:'',qty:0,unit:'kg',note:''});renderHarvest();save();}
+function upHarvest(i,k,v){state.harvests[i][k]=v;save();renderHarvestSum();}
+function delHarvest(i){state.harvests.splice(i,1);renderHarvest();save();}
 
 /* ===== スケジュール ===== */
 function renderGantt(){
@@ -611,7 +742,7 @@ function renderGantt(){
 /* ===== 共通 ===== */
 function yen(n){return '¥'+(n||0).toLocaleString('ja-JP');}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function renderAll(){viewMap=state.viewMap||viewMap;renderPlotBar();renderPalette();renderStageLegend();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();applyModeUI();applyViewUI();}
+function renderAll(){viewMap=state.viewMap||viewMap;renderPlotBar();renderPalette();renderStageLegend();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderHarvest();renderGantt();applyModeUI();applyViewUI();applyBudgetView();}
 
 /* タブ */
 function activateTab(name){
