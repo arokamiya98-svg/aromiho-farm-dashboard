@@ -39,12 +39,23 @@ section.active{display:block}
 .card h3{font-size:13px;margin:16px 0 8px;color:var(--muted)}
 .row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
 .grow{flex:1;min-width:260px}
-/* 区画 */
+/* 区画ツールバー */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.plotsel{display:flex;gap:6px;flex-wrap:wrap}
+.plotsel button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 13px;font-size:12px;cursor:pointer;font-family:inherit}
+.plotsel button.on{background:var(--green);color:#fff;border-color:var(--green)}
+.modebar{display:flex;gap:4px;background:var(--soft);border-radius:9px;padding:3px}
+.modebar button{border:none;background:transparent;padding:6px 13px;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--muted)}
+.modebar button.on{background:#fff;color:var(--green-d);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.minibtn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+.minibtn:hover{background:var(--soft)}
+.stages{display:flex;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px}
+.stages span{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+/* 区画グリッド */
 .plot-wrap{display:inline-block;position:relative}
 .compass{font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center}
-.grid{display:grid;grid-template-columns:repeat(10,26px);grid-auto-rows:26px;gap:1px;
-  background:var(--line);border:2px solid var(--green-d);touch-action:none;user-select:none}
-.cell{cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1}
+.grid{display:grid;grid-auto-rows:26px;gap:1px;background:var(--line);border:2px solid var(--green-d)}
+.cell{cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
 .cell:hover{outline:2px solid var(--green-d);outline-offset:-2px;z-index:2}
 .scale{font-size:10px;color:var(--muted);text-align:center;margin-top:3px}
 .palette{display:flex;flex-direction:column;gap:5px;min-width:150px}
@@ -59,7 +70,7 @@ section.active{display:block}
 /* テーブル */
 table.data{width:100%;border-collapse:collapse;font-size:13px}
 table.data th,table.data td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
-table.data th{color:var(--muted);font-weight:600;font-size:11px;text-transform:none}
+table.data th{color:var(--muted);font-weight:600;font-size:11px}
 table.data td.n{text-align:right;font-variant-numeric:tabular-nums}
 table.data input{border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-size:13px;
   font-family:inherit;width:100%;background:#fff}
@@ -78,7 +89,7 @@ table.data input.n{text-align:right}
 .gantt{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
 .gantt th,.gantt td{border:1px solid var(--line);padding:0;text-align:center;height:22px}
 .gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0}
-.gantt td.name{text-align:left;padding:0 8px;font-size:12px;width:92px;background:#fff}
+.gantt td.name{text-align:left;padding:0 8px;font-size:12px;width:100px;background:#fff}
 .gantt td.winter{background:#eceef0}
 .g-plant{background:var(--c-summer)}
 .g-grow{background:#cfe0c9}
@@ -95,6 +106,7 @@ table.data input.n{text-align:right}
 ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 .pill{display:inline-block;background:var(--soft);border-radius:20px;padding:2px 11px;
   font-size:12px;margin:2px 3px 2px 0;border:1px solid var(--line)}
+/* 天気 */
 .wg{border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-size:13px;font-family:inherit;width:96px}
 .wxnow{display:flex;gap:16px;align-items:center;background:var(--soft);border-radius:11px;padding:14px 18px;margin:10px 0;flex-wrap:wrap}
 .wxnow .big{font-size:36px;line-height:1}
@@ -106,9 +118,9 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 .wxday .i{font-size:26px;margin:2px 0;line-height:1}
 .wxday .hi{font-weight:700;color:#c65a3f}.wxday .lo{color:#5a7fb0}
 @media print{
-  nav,header .btn{display:none}
+  nav,header .btn,.toolbar,.palette{display:none!important}
   section{display:block!important;page-break-inside:avoid}
-  header{background:var(--green)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  header{background:var(--green)!important}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .card{break-inside:avoid}
 }
@@ -139,21 +151,36 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <!-- 区画 -->
   <section id="tab-plot" class="active">
     <div class="card">
-      <h2>畑の区画イメージ（約60坪 / 198㎡）</h2>
-      <p class="note">パレットで品目を選んで、マスをクリック（スマホは指でなぞる）＝塗り絵で配置。1マス＝1㎡。塗ったマス数が右の面積に自動集計されます。背の高い支柱もの（トマト・きゅうり）は北側に置くと畑全体に影が出にくい。</p>
+      <h2>畑の区画</h2>
+      <div class="toolbar">
+        <div class="plotsel" id="plotSel"></div>
+        <button class="minibtn" onclick="addPlot()">＋畑を追加</button>
+        <button class="minibtn" onclick="renamePlot()">✎ 名前変更</button>
+        <button class="minibtn" onclick="delPlot()">🗑 削除</button>
+      </div>
+      <div class="toolbar">
+        <div class="modebar" id="modeBar">
+          <button data-mode="view" onclick="setMode('view')">👁 閲覧</button>
+          <button data-mode="place" onclick="setMode('place')">🖌 配置</button>
+          <button data-mode="grow" onclick="setMode('grow')">🌱 生育</button>
+        </div>
+        <button class="minibtn" onclick="undo()">↶ 1つ戻す</button>
+        <span class="note" id="modeHint" style="margin:0;padding:6px 10px"></span>
+      </div>
       <div class="row">
         <div class="palette" id="palette"></div>
         <div class="plot-wrap">
           <div class="compass">▲ 北（日当たり手前＝南）</div>
           <div class="grid" id="grid"></div>
-          <div class="scale">← 約10m →　　縦 約20m</div>
+          <div class="scale" id="plotScale"></div>
         </div>
         <div class="grow legend-area">
           <h3>面積の集計（㎡）</h3>
           <table id="areaTbl"></table>
         </div>
       </div>
-      <p class="note" id="rotNote">🔁 <b>輪作メモ：</b>ナス科（トマト・なす・ピーマン・じゃがいも）は連作を嫌うので毎年ゾーンをずらす。マメ科の枝豆は根粒菌で土を肥やすので、翌年その場所にナス科や葉物を回すと good。真菰は畑の外＝水場（別区画）。</p>
+      <div class="stages" id="stageLegend"></div>
+      <p class="note">🔁 <b>使い方：</b>「🖌配置」で品目を塗る（1マス=1㎡・ドラッグOK）→「🌱生育」でマスをタップすると 🫘種→🌱芽→🪴苗→🌿生育→🌼結実→🍅収穫期→✅収穫済 と1段ずつ進む。「👁閲覧」中はスクロールしても何も変わらない。「↶1つ戻す」で直前の操作を取り消し。畑は上のボタンで切替・追加できる（メイン畑／真菰の水田／田んぼなど）。</p>
     </div>
   </section>
 
@@ -161,6 +188,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <section id="tab-budget">
     <div class="card">
       <h2>品目マスタ（種苗費）</h2>
+      <p class="note" id="budgetHint"></p>
       <table class="data" id="itemTbl"></table>
       <button class="addbtn" onclick="addItem()">＋ 品目を追加</button>
     </div>
@@ -173,7 +201,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
     <div class="card">
       <h2>初年度サマリ</h2>
       <div class="kpi" id="kpi"></div>
-      <p class="note">💡 二人の野菜自給で<b>年 約10万円の食費削減</b>を見込むと、初年度の種苗＋道具（下記合計）は<b>初年度でほぼ回収、2年目以降は完全に黒字</b>。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
+      <p class="note">💡 二人の野菜自給で<b>年 約10万円の食費削減</b>を見込むと、初年度の種苗＋道具は<b>初年度でほぼ回収、2年目以降は完全に黒字</b>。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
     </div>
   </section>
 
@@ -204,14 +232,14 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
         <span class="pill" style="background:#f6ddd3">☀️ 夏：トマト・なす・きゅうり・ピーマン・枝豆・バジル</span>
         <span class="pill" style="background:#dde7f2">❄️ 秋冬：大根・白菜・にんじん</span>
         <span class="pill" style="background:#e5efd6">🌱 端境期：小松菜・青梗菜</span>
-        <span class="pill" style="background:#d6e8f4">💧 別枠：真菰</span>
+        <span class="pill" style="background:#d6e8f4">💧 水田：真菰・稲</span>
       </div>
     </div>
     <div class="card">
       <h2>棲み分け（畑と水場を物理分離）</h2>
       <div class="zones">
-        <div class="zone plot"><b>🟩 畑ゾーン 60坪</b><small>自給16品目。あろ×みほで見れる限度。実作付け125㎡前後で収まり、枝豆・じゃがいもを増やす余白あり。</small></div>
-        <div class="zone water"><b>💧 水ゾーン（別枠）</b><small>真菰。水生ゆえ畑に入れない。休耕田・湿地・水利のある一角。協力隊期は小さく試作、独立後に商品規模へ拡張。</small></div>
+        <div class="zone plot"><b>🟩 畑ゾーン 60坪</b><small>自給16品目。あろ×みほで見れる限度。実作付け125〜155㎡で収まり、枝豆・じゃがいもを増やす余白あり。</small></div>
+        <div class="zone water"><b>💧 水ゾーン（別枠）</b><small>真菰・稲。水生ゆえ畑に入れない。休耕田・湿地・水利のある一角。協力隊期は小さく試作、独立後に商品規模へ拡張。</small></div>
         <div class="zone alpha"><b>➕ プラスα</b><small>土地があれば。真菰の増産／芋の保存用増産／みほの実験区。</small></div>
       </div>
       <p class="note">🌾 <b>真菰＝独立後の主力商品 × 二人の大好物。</b>作り手が本気で好きで毎日食べる＝商品ストーリー最強。あろのマーケ・営業経験が最も活きる形。<br>🔲 <b>体験就農（7/24〜）で「真菰用の水利・休耕田があるか」を必須確認。</b></p>
@@ -256,22 +284,22 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 </main>
 
 <script>
-/* ---------- データ ---------- */
+/* ===== 定数 ===== */
 var GROUPS={
   base:{label:'保存の土台',color:'#d9b877'},
   summer:{label:'夏果菜',color:'#e08a6f'},
   bean:{label:'マメ',color:'#cb9a5f'},
   winter:{label:'秋冬',color:'#8fabd0'},
   leaf:{label:'葉物・ハーブ',color:'#a3c47f'},
-  makomo:{label:'真菰(水場)',color:'#6fa3c9'}
+  makomo:{label:'水田・水場',color:'#6fa3c9'}
 };
-var SPECIAL={
-  path:{label:'通路',color:'#e4dccb'},
-  empty:{label:'空き（消す）',color:'#f4f1e9'}
-};
-var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🌱',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🌾'};
+var SPECIAL={ path:{label:'通路・畦',color:'#e4dccb'}, empty:{label:'空き（消す）',color:'#f4f1e9'} };
+var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🌱',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾'};
 function emo(id){return EMOJI[id]||'🌱';}
-// 月: 0=1月 ... 11=12月 / p=植付 g=育成 h=収穫
+var STAGES=[{e:'🫘',l:'種・植付'},{e:'🌱',l:'発芽'},{e:'🪴',l:'苗'},{e:'🌿',l:'生育'},{e:'🌼',l:'結実'},{e:null,l:'収穫期'},{e:'✅',l:'収穫済'}];
+
+/* ===== 初期データ ===== */
+function riceItem(){return {id:'rice',name:'稲（米）',group:'makomo',buy:'苗箱 or 種籾',seed:3000,sch:{4:'p',5:'g',6:'g',7:'g',8:'g',9:'h',10:'h'}};}
 var DEFAULT={
   meta:{updated:''},
   geo:{lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'},
@@ -291,7 +319,8 @@ var DEFAULT={
     {id:'komatsu',name:'小松菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
     {id:'bokchoy',name:'青梗菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
     {id:'basil',name:'バジル',group:'leaf',buy:'種 1袋',seed:300,sch:{4:'p',5:'g',6:'h',7:'h',8:'h'}},
-    {id:'makomo',name:'真菰(水場)',group:'makomo',buy:'株苗 3〜5株',seed:4000,sch:{3:'p',4:'p',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}}
+    {id:'makomo',name:'真菰',group:'makomo',buy:'株苗 3〜5株',seed:4000,sch:{3:'p',4:'p',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}},
+    riceItem()
   ],
   tools:[
     {name:'鍬・スコップ・移植ゴテ',cost:8000},
@@ -302,12 +331,13 @@ var DEFAULT={
     {name:'誘引資材（マイカ線ほか）',cost:1500},
     {name:'もみ殻・堆肥（土づくり）',cost:3000},
     {name:'収穫カゴ・コンテナ',cost:2500}
-  ],
-  cells:null
+  ]
 };
-function defaultCells(){
-  var C=10,R=20,g=new Array(C*R).fill('empty');
-  function put(c0,c1,r0,r1,id){for(var r=r0;r<=r1;r++)for(var c=c0;c<=c1;c++)g[r*C+c]=id;}
+
+/* ===== 畑（プロット）生成 ===== */
+function mainPlotCells(){
+  var C=10,R=20,g=[];for(var i=0;i<C*R;i++)g.push({t:'empty'});
+  function put(c0,c1,r0,r1,id){for(var r=r0;r<=r1;r++)for(var c=c0;c<=c1;c++){g[r*C+c]=(id==='path')?{t:'path'}:{t:id,s:5};}}
   put(0,1,0,2,'tomato');put(2,3,0,2,'eggplant');put(4,5,0,2,'cuke');put(6,7,0,2,'pepper');put(8,9,0,2,'basil');
   put(0,9,3,3,'path');
   put(0,4,4,6,'edamame');put(5,6,4,6,'komatsu');put(7,8,4,6,'bokchoy');put(9,9,4,6,'leek');
@@ -318,12 +348,41 @@ function defaultCells(){
   put(0,9,19,19,'path');
   return g;
 }
-/* ---------- 状態 ---------- */
-var KEY='aromiho_farm_dashboard_v1';
-var state, selPaint='pota';
+function paddyCells(C,R,id){
+  var g=[];for(var r=0;r<R;r++)for(var c=0;c<C;c++){
+    var edge=(r===0||c===0||r===R-1||c===C-1);
+    g.push(edge?{t:'path'}:{t:id,s:5});
+  }
+  return g;
+}
+function defaultPlots(){
+  return [
+    {id:'main',name:'メイン畑（60坪）',cols:10,rows:20,cells:mainPlotCells()},
+    {id:'makomo',name:'真菰の水田',cols:6,rows:8,cells:paddyCells(6,8,'makomo')},
+    {id:'rice',name:'田んぼ（稲）',cols:10,rows:12,cells:paddyCells(10,12,'rice')}
+  ];
+}
+function freshState(){var d=JSON.parse(JSON.stringify(DEFAULT));d.plots=defaultPlots();d.activePlot='main';return d;}
+
+/* ===== 状態 ===== */
+var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', painting=false, history=[];
+function migrateCells(arr){return arr.map(function(v){if(v==='path')return {t:'path'};if(v==='empty'||!v)return {t:'empty'};return {t:v,s:5};});}
+function normalize(s){
+  if(!s||!s.items)return null;
+  if(!s.plots){
+    if(s.cells)s.plots=[{id:'main',name:'メイン畑（60坪）',cols:10,rows:20,cells:migrateCells(s.cells)}];
+    else s.plots=defaultPlots();
+    delete s.cells;
+  }
+  s.plots.forEach(function(p){p.cells=p.cells.map(function(c){return (typeof c==='string')?(c==='path'?{t:'path'}:c==='empty'?{t:'empty'}:{t:c,s:5}):c;});});
+  if(!s.activePlot||!s.plots.some(function(p){return p.id===s.activePlot;}))s.activePlot=s.plots[0].id;
+  if(!s.geo)s.geo={lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'};
+  if(!s.items.some(function(x){return x.id==='rice';}))s.items.push(riceItem());
+  return s;
+}
 function load(){
-  try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.items){return s;}}catch(e){}
-  var d=JSON.parse(JSON.stringify(DEFAULT));d.cells=defaultCells();return d;
+  try{var s=normalize(JSON.parse(localStorage.getItem(KEY)));if(s)return s;}catch(e){}
+  return freshState();
 }
 function save(){
   state.meta.updated=new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -331,91 +390,125 @@ function save(){
   document.getElementById('updated').textContent='最終更新 '+state.meta.updated;
 }
 function itemById(id){for(var i=0;i<state.items.length;i++)if(state.items[i].id===id)return state.items[i];return null;}
-function colorOf(id){
-  if(SPECIAL[id])return SPECIAL[id].color;
-  var it=itemById(id);if(it)return GROUPS[it.group].color;return SPECIAL.empty.color;
+function curPlot(){for(var i=0;i<state.plots.length;i++)if(state.plots[i].id===state.activePlot)return state.plots[i];return state.plots[0];}
+function cellId(c){return c?c.t:'empty';}
+function colorOf(id){if(SPECIAL[id])return SPECIAL[id].color;var it=itemById(id);return it?GROUPS[it.group].color:SPECIAL.empty.color;}
+function labelOf(id){if(SPECIAL[id])return SPECIAL[id].label;var it=itemById(id);return it?it.name:'';}
+function stageEmoji(c){if(!c||SPECIAL[c.t])return '';var s=Math.min(c.s||0,STAGES.length-1);var e=STAGES[s].e;return e===null?emo(c.t):e;}
+function cellTitle(c){if(!c||SPECIAL[c.t])return SPECIAL[c.t]?SPECIAL[c.t].label:'';var it=itemById(c.t);var s=Math.min(c.s||0,STAGES.length-1);return (it?it.name:'')+'：'+STAGES[s].l;}
+
+/* ===== 区画：畑バー・モード ===== */
+function renderPlotBar(){
+  var h='';
+  state.plots.forEach(function(p){
+    h+='<button class="'+(p.id===state.activePlot?'on':'')+'" onclick="setPlot(\''+p.id+'\')">'+esc(p.name)+'</button>';
+  });
+  document.getElementById('plotSel').innerHTML=h;
 }
-function labelOf(id){
-  if(SPECIAL[id])return SPECIAL[id].label;
-  var it=itemById(id);return it?it.name:'';
+function setPlot(id){state.activePlot=id;history=[];save();renderPlotBar();renderGrid();renderArea();renderItems();}
+function addPlot(){
+  var name=prompt('新しい畑の名前は？（例：ハーブ畑 / 借り増した畑）','新しい畑');
+  if(!name)return;
+  var cols=Math.max(2,Math.min(30,parseInt(prompt('横のマス数（1マス=1m）',8),10)||8));
+  var rows=Math.max(2,Math.min(40,parseInt(prompt('縦のマス数（1マス=1m）',10),10)||10));
+  var id='plot'+Date.now(),cells=[];for(var i=0;i<cols*rows;i++)cells.push({t:'empty'});
+  state.plots.push({id:id,name:name,cols:cols,rows:rows,cells:cells});
+  setPlot(id);
 }
-/* ---------- 区画 ---------- */
+function renamePlot(){var p=curPlot();var n=prompt('畑の名前',p.name);if(n){p.name=n;save();renderPlotBar();}}
+function delPlot(){
+  if(state.plots.length<=1){alert('畑は最低1つ必要です');return;}
+  var p=curPlot();if(!confirm('「'+p.name+'」を削除しますか？'))return;
+  state.plots=state.plots.filter(function(x){return x.id!==p.id;});
+  setPlot(state.plots[0].id);
+}
+function setMode(m){mode=m;applyModeUI();}
+function applyModeUI(){
+  Array.prototype.forEach.call(document.querySelectorAll('#modeBar button'),function(b){b.classList.toggle('on',b.dataset.mode===mode);});
+  document.getElementById('palette').style.display=(mode==='place')?'':'none';
+  document.getElementById('stageLegend').style.display=(mode==='grow')?'':'none';
+  var g=document.getElementById('grid');if(g)g.style.touchAction=(mode==='view')?'auto':'none';
+  var hint={view:'閲覧中：タップしても変わりません（安全にスクロールできます）',place:'配置中：パレットの品目でマスを塗る（ドラッグOK・1マス=1㎡）',grow:'生育中：マスをタップで生育ステージが1つ進む'};
+  document.getElementById('modeHint').textContent=hint[mode];
+}
+function renderStageLegend(){
+  var h='';STAGES.forEach(function(s){h+='<span>'+(s.e===null?'🍅':s.e)+' '+s.l+'</span>';});
+  document.getElementById('stageLegend').innerHTML=h;
+}
+
+/* ===== 区画：グリッド ===== */
 function renderPalette(){
   var p=document.getElementById('palette'),h='<h3 style="margin-top:0">パレット</h3>';
-  state.items.forEach(function(it){
-    if(it.group==='makomo')return; // 真菰は畑外
-    h+=swHtml(it.id,it.name);
-  });
-  h+=swHtml('path','通路');
-  h+=swHtml('empty','空き（消す）');
+  state.items.forEach(function(it){h+=swHtml(it.id,it.name);});
+  h+=swHtml('path','通路・畦');h+=swHtml('empty','空き（消す）');
   p.innerHTML=h;
-  Array.prototype.forEach.call(p.querySelectorAll('.sw'),function(el){
-    el.onclick=function(){selPaint=el.dataset.id;renderPalette();};
-  });
+  Array.prototype.forEach.call(p.querySelectorAll('.sw'),function(el){el.onclick=function(){selPaint=el.dataset.id;renderPalette();};});
 }
 function swHtml(id,name){
   var e=(SPECIAL[id]?'':emo(id)+' ');
-  return '<div class="sw'+(selPaint===id?' sel':'')+'" data-id="'+id+'">'+
-    '<span class="chip" style="background:'+colorOf(id)+'"></span>'+e+name+'</div>';
+  return '<div class="sw'+(selPaint===id?' sel':'')+'" data-id="'+id+'"><span class="chip" style="background:'+colorOf(id)+'"></span>'+e+name+'</div>';
 }
-var painting=false;
 function renderGrid(){
-  var g=document.getElementById('grid'),h='';
-  for(var i=0;i<state.cells.length;i++){
-    var cid=state.cells[i];var ce=SPECIAL[cid]?'':emo(cid);
-    h+='<div class="cell" data-i="'+i+'" style="background:'+colorOf(cid)+'" title="'+labelOf(cid)+'">'+ce+'</div>';
+  var p=curPlot(),g=document.getElementById('grid'),h='';
+  g.style.gridTemplateColumns='repeat('+p.cols+',26px)';
+  for(var i=0;i<p.cells.length;i++){var c=p.cells[i];
+    h+='<div class="cell" data-i="'+i+'" style="background:'+colorOf(cellId(c))+'" title="'+esc(cellTitle(c))+'">'+stageEmoji(c)+'</div>';
   }
   g.innerHTML=h;
+  document.getElementById('plotScale').textContent='← 約'+p.cols+'m →　　縦 約'+p.rows+'m　（'+p.cols*p.rows+'㎡）';
 }
-function paintAt(el){
-  if(!el||!el.dataset||el.dataset.i===undefined)return;
-  var i=+el.dataset.i;
-  if(state.cells[i]!==selPaint){
-    state.cells[i]=selPaint;
-    el.style.background=colorOf(selPaint);
-    el.title=labelOf(selPaint);
-    el.textContent=SPECIAL[selPaint]?'':emo(selPaint);
-    scheduleAreaUpdate();
-  }
-}
-var areaTimer=null;
-function scheduleAreaUpdate(){clearTimeout(areaTimer);areaTimer=setTimeout(function(){renderArea();save();},120);}
-function renderArea(){
-  var count={};state.cells.forEach(function(id){count[id]=(count[id]||0)+1;});
-  var rows='',total=0;
-  state.items.forEach(function(it){
-    if(it.group==='makomo')return;
-    var n=count[it.id]||0;if(n===0)return;total+=n;
-    rows+='<tr><td><span class="chip-g" style="background:'+colorOf(it.id)+'"></span>'+emo(it.id)+' '+it.name+'</td><td class="n">'+n+'</td></tr>';
-  });
-  var path=count['path']||0,empty=count['empty']||0;
-  rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.path.color+'"></span>通路</td><td class="n">'+path+'</td></tr>';
-  rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.empty.color+'"></span>空き</td><td class="n">'+empty+'</td></tr>';
-  rows+='<tr style="border-top:2px solid var(--line)"><td class="total">作付け合計</td><td class="n total">'+total+' ㎡</td></tr>';
-  rows+='<tr><td style="color:var(--muted)">畑ぜんたい</td><td class="n" style="color:var(--muted)">200 ㎡ ≒ 60坪</td></tr>';
-  document.getElementById('areaTbl').innerHTML=rows;
+function drawCell(el,c){el.style.background=colorOf(cellId(c));el.title=cellTitle(c);el.textContent=stageEmoji(c);}
+function placeAt(el){var i=+el.dataset.i,pl=curPlot();pl.cells[i]=SPECIAL[selPaint]?{t:selPaint}:{t:selPaint,s:0};drawCell(el,pl.cells[i]);scheduleUpdate();}
+function growAt(el){var i=+el.dataset.i,c=curPlot().cells[i];if(SPECIAL[c.t])return;c.s=((c.s||0)+1)%STAGES.length;drawCell(el,c);scheduleUpdate();}
+var upTimer=null;
+function scheduleUpdate(){clearTimeout(upTimer);upTimer=setTimeout(function(){renderArea();renderItems();save();},140);}
+function pushHistory(){history.push({p:state.activePlot,c:JSON.stringify(curPlot().cells)});if(history.length>30)history.shift();}
+function undo(){
+  if(!history.length){document.getElementById('modeHint').textContent='戻せる操作がありません';return;}
+  var h=history.pop();
+  for(var i=0;i<state.plots.length;i++)if(state.plots[i].id===h.p)state.plots[i].cells=JSON.parse(h.c);
+  state.activePlot=h.p;renderPlotBar();renderGrid();renderArea();renderItems();save();
 }
 function bindGrid(){
   var g=document.getElementById('grid');
-  g.addEventListener('pointerdown',function(e){painting=true;paintAt(e.target);e.preventDefault();});
+  g.addEventListener('pointerdown',function(e){
+    if(mode==='view'||!e.target.classList.contains('cell'))return;
+    e.preventDefault();pushHistory();
+    if(mode==='place'){painting=true;placeAt(e.target);}
+    else if(mode==='grow'){growAt(e.target);}
+  });
   g.addEventListener('pointermove',function(e){
-    if(!painting)return;
+    if(!painting||mode!=='place')return;
     var el=document.elementFromPoint(e.clientX,e.clientY);
-    if(el&&el.classList.contains('cell'))paintAt(el);
+    if(el&&el.classList.contains('cell'))placeAt(el);
   });
   document.addEventListener('pointerup',function(){painting=false;});
 }
-/* ---------- 品目・予算 ---------- */
+function renderArea(){
+  var p=curPlot(),count={};p.cells.forEach(function(c){var id=cellId(c);count[id]=(count[id]||0)+1;});
+  var rows='',total=0;
+  state.items.forEach(function(it){var n=count[it.id]||0;if(n===0)return;total+=n;
+    rows+='<tr><td><span class="chip-g" style="background:'+colorOf(it.id)+'"></span>'+emo(it.id)+' '+esc(it.name)+'</td><td class="n">'+n+'</td></tr>';
+  });
+  rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.path.color+'"></span>通路・畦</td><td class="n">'+(count['path']||0)+'</td></tr>';
+  rows+='<tr><td style="color:var(--muted)"><span class="chip-g" style="background:'+SPECIAL.empty.color+'"></span>空き</td><td class="n">'+(count['empty']||0)+'</td></tr>';
+  rows+='<tr style="border-top:2px solid var(--line)"><td class="total">作付け合計</td><td class="n total">'+total+' ㎡</td></tr>';
+  var area=p.cols*p.rows,tsubo=Math.round(area/3.305*10)/10;
+  rows+='<tr><td style="color:var(--muted)">'+esc(p.name)+' 全体</td><td class="n" style="color:var(--muted)">'+area+'㎡ ≒ '+tsubo+'坪</td></tr>';
+  document.getElementById('areaTbl').innerHTML=rows;
+}
+
+/* ===== 予算 ===== */
 function renderItems(){
-  var t=document.getElementById('itemTbl');
-  var count={};state.cells.forEach(function(id){count[id]=(count[id]||0)+1;});
+  var t=document.getElementById('itemTbl'),p=curPlot(),count={};
+  p.cells.forEach(function(c){var id=cellId(c);count[id]=(count[id]||0)+1;});
+  document.getElementById('budgetHint').textContent='「配置㎡」は今表示中の畑「'+p.name+'」での面積です。';
   var h='<tr><th>品目</th><th>グループ</th><th>配置㎡</th><th>買い方</th><th>種苗費(円)</th><th></th></tr>';
   state.items.forEach(function(it,idx){
-    var area=it.group==='makomo'?'—(水場)':(count[it.id]||0);
     h+='<tr>'+
       '<td><span style="margin-right:4px">'+emo(it.id)+'</span><input style="width:calc(100% - 24px)" value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>'+
       '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
-      '<td class="n">'+area+'</td>'+
+      '<td class="n">'+(count[it.id]||0)+'</td>'+
       '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
       '<td class="n"><input class="n" type="number" value="'+it.seed+'" onchange="upItem('+idx+',\'seed\',+this.value)"></td>'+
       '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
@@ -425,8 +518,7 @@ function renderItems(){
   t.innerHTML=h;
 }
 function renderTools(){
-  var t=document.getElementById('toolTbl');
-  var h='<tr><th>道具・資材</th><th>費用(円)</th><th></th></tr>';
+  var t=document.getElementById('toolTbl'),h='<tr><th>道具・資材</th><th>費用(円)</th><th></th></tr>';
   state.tools.forEach(function(to,idx){
     h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
       '<td class="n"><input class="n" type="number" value="'+to.cost+'" onchange="upTool('+idx+',\'cost\',+this.value)"></td>'+
@@ -447,25 +539,20 @@ function renderKpi(){
 }
 function upItem(i,k,v){state.items[i][k]=v;save();if(k==='seed'){renderKpi();renderItems();}}
 function delItem(i){if(!confirm('「'+state.items[i].name+'」を削除しますか？'))return;state.items.splice(i,1);renderAll();save();}
-function addItem(){
-  var id='item'+Date.now();
-  state.items.push({id:id,name:'新しい品目',group:'leaf',buy:'',seed:0,sch:{}});
-  renderAll();save();
-}
+function addItem(){state.items.push({id:'item'+Date.now(),name:'新しい品目',group:'leaf',buy:'',seed:0,sch:{}});renderAll();save();}
 function upTool(i,k,v){state.tools[i][k]=v;save();renderKpi();renderTools();}
 function delTool(i){state.tools.splice(i,1);renderTools();renderKpi();save();}
 function addTool(){state.tools.push({name:'新しい道具',cost:0});renderTools();save();}
-/* ---------- スケジュール ---------- */
+
+/* ===== スケジュール ===== */
 function renderGantt(){
-  var M=['1','2','3','4','5','6','7','8','9','10','11','12'];
-  var winter={0:1,1:1,2:1,11:1}; // 雪・農閑
+  var M=['1','2','3','4','5','6','7','8','9','10','11','12'],winter={0:1,1:1,2:1,11:1};
   var h='<tr><th class="name">品目</th>';
   M.forEach(function(m,i){h+='<th'+(winter[i]?' class="winter"':'')+'>'+m+'</th>';});
   h+='</tr>';
   state.items.forEach(function(it){
     h+='<tr><td class="name">'+emo(it.id)+' '+esc(it.name)+'</td>';
-    for(var m=0;m<12;m++){
-      var v=it.sch&&it.sch[m];var cls=winter[m]?'winter':'';
+    for(var m=0;m<12;m++){var v=it.sch&&it.sch[m],cls=winter[m]?'winter':'';
       if(v==='p')cls='g-plant';else if(v==='g')cls='g-grow';else if(v==='h')cls='g-harvest';
       var lab=v==='p'?'🌱':v==='h'?emo(it.id):'';
       h+='<td class="'+cls+'">'+lab+'</td>';
@@ -474,103 +561,89 @@ function renderGantt(){
   });
   document.getElementById('gantt').innerHTML=h;
 }
-/* ---------- 共通 ---------- */
+
+/* ===== 共通 ===== */
 function yen(n){return '¥'+(n||0).toLocaleString('ja-JP');}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function renderAll(){renderPalette();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();}
+function renderAll(){renderPlotBar();renderPalette();renderStageLegend();renderGrid();renderArea();renderItems();renderTools();renderKpi();renderGantt();applyModeUI();}
+
 /* タブ */
 function activateTab(name){
   Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(x){x.classList.toggle('active',x.dataset.tab===name);});
   Array.prototype.forEach.call(document.querySelectorAll('main section'),function(x){x.classList.remove('active');});
-  var el=document.getElementById('tab-'+name); if(el)el.classList.add('active');
+  var el=document.getElementById('tab-'+name);if(el)el.classList.add('active');
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
   b.onclick=function(){activateTab(b.dataset.tab);location.hash=b.dataset.tab;};
 });
-if(location.hash)activateTab(location.hash.slice(1));
-/* 入出力 */
-function doExport(){
-  var blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='農園ダッシュボード_'+new Date().toISOString().slice(0,10)+'.json';a.click();
-}
-function doImport(ev){
-  var f=ev.target.files[0];if(!f)return;var r=new FileReader();
-  r.onload=function(){try{var s=JSON.parse(r.result);if(s.items){state=s;if(!state.cells)state.cells=defaultCells();renderAll();save();alert('読み込みました');}}catch(e){alert('読み込めませんでした：'+e);}};
-  r.readAsText(f);
-}
-function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=load();renderAll();save();}
-/* 天気 (Open-Meteo・キー不要・ブラウザから直接) */
+
+/* 天気 (Open-Meteo) */
 var WMO={0:['☀️','快晴'],1:['🌤','晴れ'],2:['⛅','薄曇り'],3:['☁️','曇り'],45:['🌫','霧'],48:['🌫','霧氷'],51:['🌦','霧雨'],53:['🌦','霧雨'],55:['🌦','霧雨'],61:['🌧','雨'],63:['🌧','雨'],65:['🌧','強い雨'],66:['🌧','氷雨'],67:['🌧','氷雨'],71:['🌨','雪'],73:['🌨','雪'],75:['❄️','大雪'],77:['🌨','霧雪'],80:['🌦','にわか雨'],81:['🌦','にわか雨'],82:['⛈','激しい雨'],85:['🌨','にわか雪'],86:['🌨','にわか雪'],95:['⛈','雷雨'],96:['⛈','雷雨'],99:['⛈','雹']};
 function wmo(c){return WMO[c]||['🌡','—'];}
 function initGeoInputs(){
   var la=document.getElementById('geoLat'),lo=document.getElementById('geoLon');
-  if(la)la.value=state.geo.lat; if(lo)lo.value=state.geo.lon;
-  var t=new Date(),y=new Date(t.getTime()-30*864e5);
-  var as=document.getElementById('arcStart'),ae=document.getElementById('arcEnd');
-  if(ae)ae.value=t.toISOString().slice(0,10);
-  if(as)as.value=y.toISOString().slice(0,10);
+  if(la)la.value=state.geo.lat;if(lo)lo.value=state.geo.lon;
+  var t=new Date(),y=new Date(t.getTime()-30*864e5),as=document.getElementById('arcStart'),ae=document.getElementById('arcEnd');
+  if(ae)ae.value=t.toISOString().slice(0,10);if(as)as.value=y.toISOString().slice(0,10);
 }
-function applyGeo(){
-  state.geo.lat=+document.getElementById('geoLat').value;
-  state.geo.lon=+document.getElementById('geoLon').value;
-  state.geo.name='指定地点'; save(); loadWeather();
-}
+function applyGeo(){state.geo.lat=+document.getElementById('geoLat').value;state.geo.lon=+document.getElementById('geoLon').value;state.geo.name='指定地点';save();loadWeather();}
 async function loadWeather(){
-  var msg=document.getElementById('wxMsg'); if(!msg)return; msg.textContent='読み込み中…';
+  var msg=document.getElementById('wxMsg');if(!msg)return;msg.textContent='読み込み中…';
   var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m'+
-    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum'+
-    '&timezone=Asia%2FTokyo&forecast_days=7';
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia%2FTokyo&forecast_days=7';
   try{
-    var r=await fetch(u); var d=await r.json();
-    var c=d.current, w=wmo(c.weather_code);
-    document.getElementById('wxNow').innerHTML=
-      '<span class="big">'+w[0]+'</span><span class="t">'+Math.round(c.temperature_2m)+'°C</span>'+
-      '<span class="m">'+w[1]+'<br>湿度 '+c.relative_humidity_2m+'%　降水 '+c.precipitation+'mm　風 '+c.wind_speed_10m+'m/s</span>';
-    var dd=d.daily, h='', wd=['日','月','火','水','木','金','土'];
-    for(var i=0;i<dd.time.length;i++){
-      var ww=wmo(dd.weather_code[i]), dt=new Date(dd.time[i]);
-      h+='<div class="wxday"><div class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+wd[dt.getDay()]+')</div>'+
-        '<div class="i">'+ww[0]+'</div><div><span class="hi">'+Math.round(dd.temperature_2m_max[i])+'°</span>/<span class="lo">'+Math.round(dd.temperature_2m_min[i])+'°</span></div>'+
-        '<div class="d">☔'+dd.precipitation_sum[i]+'mm</div></div>';
+    var r=await fetch(u),d=await r.json(),c=d.current,w=wmo(c.weather_code);
+    document.getElementById('wxNow').innerHTML='<span class="big">'+w[0]+'</span><span class="t">'+Math.round(c.temperature_2m)+'°C</span><span class="m">'+w[1]+'<br>湿度 '+c.relative_humidity_2m+'%　降水 '+c.precipitation+'mm　風 '+c.wind_speed_10m+'m/s</span>';
+    var dd=d.daily,h='',wd=['日','月','火','水','木','金','土'];
+    for(var i=0;i<dd.time.length;i++){var ww=wmo(dd.weather_code[i]),dt=new Date(dd.time[i]);
+      h+='<div class="wxday"><div class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'('+wd[dt.getDay()]+')</div><div class="i">'+ww[0]+'</div><div><span class="hi">'+Math.round(dd.temperature_2m_max[i])+'°</span>/<span class="lo">'+Math.round(dd.temperature_2m_min[i])+'°</span></div><div class="d">☔'+dd.precipitation_sum[i]+'mm</div></div>';
     }
     document.getElementById('wxWeek').innerHTML=h;
     msg.textContent='地点：'+state.geo.name+'（'+state.geo.lat+', '+state.geo.lon+'）／ データ：Open-Meteo';
   }catch(e){msg.textContent='天気の取得に失敗：'+e.message+'（オフラインだと表示できません）';}
 }
 async function downloadArchive(){
-  var s=document.getElementById('arcStart').value, e=document.getElementById('arcEnd').value;
+  var s=document.getElementById('arcStart').value,e=document.getElementById('arcEnd').value;
   if(!s||!e){alert('期間を指定してください');return;}
-  var u='https://archive-api.open-meteo.com/v1/archive?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
-    '&start_date='+s+'&end_date='+e+'&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,shortwave_radiation_sum&timezone=Asia%2FTokyo';
+  var u='https://archive-api.open-meteo.com/v1/archive?latitude='+state.geo.lat+'&longitude='+state.geo.lon+'&start_date='+s+'&end_date='+e+'&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,shortwave_radiation_sum&timezone=Asia%2FTokyo';
   try{
-    var r=await fetch(u); var d=await r.json(); var dl=d.daily;
-    if(!dl){alert('データがありません');return;}
+    var r=await fetch(u),d=await r.json(),dl=d.daily;if(!dl){alert('データがありません');return;}
     var csv='date,tmax_C,tmin_C,precip_mm,radiation_MJ\n';
     for(var i=0;i<dl.time.length;i++){csv+=dl.time[i]+','+dl.temperature_2m_max[i]+','+dl.temperature_2m_min[i]+','+dl.precipitation_sum[i]+','+dl.shortwave_radiation_sum[i]+'\n';}
-    var blob=new Blob([csv],{type:'text/csv'}); var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='kashiwazaki_weather_'+s+'_'+e+'.csv'; a.click();
+    var blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download='kashiwazaki_weather_'+s+'_'+e+'.csv';a.click();
   }catch(err){alert('取得に失敗：'+err.message);}
 }
-/* 共有(data.json)取り込み */
+
+/* 入出力 */
+function doExport(){
+  var blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='農園ダッシュボード_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+}
+function doImport(ev){
+  var f=ev.target.files[0];if(!f)return;var r=new FileReader();
+  r.onload=function(){try{var s=normalize(JSON.parse(r.result));if(s){state=s;renderAll();save();alert('読み込みました');}else alert('形式が違います');}catch(e){alert('読み込めませんでした：'+e);}};
+  r.readAsText(f);
+}
 async function pullShared(){
   if(!confirm('リポジトリの共有版(data.json)を取り込み、今の編集を上書きします。よろしい？'))return;
-  try{
-    var r=await fetch('data.json',{cache:'no-store'});
-    if(!r.ok)throw new Error('data.json が見つかりません（まだ共有版が未登録かも）');
-    var s=await r.json();if(!s.items)throw new Error('形式が違います');
-    state=s;if(!state.cells)state.cells=defaultCells();renderAll();save();alert('共有版を取り込みました');
+  try{var r=await fetch('data.json',{cache:'no-store'});if(!r.ok)throw new Error('data.json が見つかりません（まだ共有版が未登録かも）');
+    var s=normalize(await r.json());if(!s)throw new Error('形式が違います');
+    state=s;renderAll();save();alert('共有版を取り込みました');
   }catch(e){alert('取り込めませんでした：'+e.message);}
 }
+function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=freshState();history=[];renderAll();save();}
+
 /* 起動 */
 async function boot(){
   state=load();
   if(!localStorage.getItem(KEY)){
-    try{var r=await fetch('data.json',{cache:'no-store'});if(r.ok){var s=await r.json();if(s.items){state=s;if(!state.cells)state.cells=defaultCells();}}}catch(e){}
+    try{var r=await fetch('data.json',{cache:'no-store'});if(r.ok){var s=normalize(await r.json());if(s)state=s;}}catch(e){}
   }
-  if(!state.geo)state.geo={lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'};
-  renderAll();bindGrid();initGeoInputs();loadWeather();save();
+  renderAll();bindGrid();initGeoInputs();loadWeather();
+  if(location.hash)activateTab(location.hash.slice(1));
+  save();
 }
 boot();
 </script>
