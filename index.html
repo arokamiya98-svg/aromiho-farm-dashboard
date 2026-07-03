@@ -117,6 +117,23 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
 .wxday .d{font-size:11px;color:var(--muted)}
 .wxday .i{font-size:26px;margin:2px 0;line-height:1}
 .wxday .hi{font-weight:700;color:#c65a3f}.wxday .lo{color:#5a7fb0}
+/* 雨カレンダー */
+.rainstats{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+.rainstats div{background:var(--soft);border-radius:9px;padding:9px 13px;min-width:92px}
+.rainstats b{display:block;font-size:19px;color:var(--green-d);font-variant-numeric:tabular-nums}
+.rainstats span{font-size:11px;color:var(--muted)}
+.rcal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:4px}
+.rcal .hd{text-align:center;font-size:10px;color:var(--muted);padding:2px 0;font-weight:600}
+.rcal .hd.sun{color:#c65a3f}.rcal .hd.sat{color:#5a7fb0}
+.rcell{min-height:46px;border-radius:7px;border:1px solid var(--line);padding:3px 2px;
+  text-align:center;line-height:1.2;display:flex;flex-direction:column;justify-content:center;gap:1px}
+.rcell .rd{font-size:9.5px;color:var(--muted)}
+.rcell .ri{font-size:15px;line-height:1}
+.rcell .rmm{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
+.rcell.today{outline:2px solid var(--green);outline-offset:-1px}
+.rcell.pad{visibility:hidden;border:none}
+.rainlegend{display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:10.5px;color:var(--muted);margin-top:10px}
+.rainlegend i{width:16px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
 @media print{
   nav,header .btn,.toolbar,.palette{display:none!important}
   section{display:block!important;page-break-inside:avoid}
@@ -271,6 +288,14 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <p class="note" id="wxMsg">読み込み中…</p>
     </div>
     <div class="card">
+      <h2>過去1ヶ月の雨カレンダー</h2>
+      <p class="note">直近ひと月ぶんの日別降水量。色が濃い＝よく降った日。雨が多かったか少なかったかをひと目で。</p>
+      <div class="rainstats" id="rainStats"></div>
+      <div class="rcal" id="rainCal"></div>
+      <div class="rainlegend" id="rainLegend"></div>
+      <p class="note" id="rainMsg">読み込み中…</p>
+    </div>
+    <div class="card">
       <h2>データ分析用：過去の気象をCSVで取得</h2>
       <p class="note">将来、収穫記録と気象（気温・降水・日射）を突き合わせる素材。今のうちに"型"だけ作っておく＝データ分析の下ごしらえ。Open-Meteoの過去アーカイブから日次データを取ってCSVでダウンロード。</p>
       <div class="row" style="align-items:center;gap:8px">
@@ -365,7 +390,7 @@ function defaultPlots(){
 function freshState(){var d=JSON.parse(JSON.stringify(DEFAULT));d.plots=defaultPlots();d.activePlot='main';return d;}
 
 /* ===== 状態 ===== */
-var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', painting=false, history=[];
+var KEY='aromiho_farm_dashboard_v1', state, selPaint='tomato', mode='view', painting=false, undoStack=[];
 function migrateCells(arr){return arr.map(function(v){if(v==='path')return {t:'path'};if(v==='empty'||!v)return {t:'empty'};return {t:v,s:5};});}
 function normalize(s){
   if(!s||!s.items)return null;
@@ -405,7 +430,7 @@ function renderPlotBar(){
   });
   document.getElementById('plotSel').innerHTML=h;
 }
-function setPlot(id){state.activePlot=id;history=[];save();renderPlotBar();renderGrid();renderArea();renderItems();}
+function setPlot(id){state.activePlot=id;undoStack=[];save();renderPlotBar();renderGrid();renderArea();renderItems();}
 function addPlot(){
   var name=prompt('新しい畑の名前は？（例：ハーブ畑 / 借り増した畑）','新しい畑');
   if(!name)return;
@@ -462,10 +487,10 @@ function placeAt(el){var i=+el.dataset.i,pl=curPlot();pl.cells[i]=SPECIAL[selPai
 function growAt(el){var i=+el.dataset.i,c=curPlot().cells[i];if(SPECIAL[c.t])return;c.s=((c.s||0)+1)%STAGES.length;drawCell(el,c);scheduleUpdate();}
 var upTimer=null;
 function scheduleUpdate(){clearTimeout(upTimer);upTimer=setTimeout(function(){renderArea();renderItems();save();},140);}
-function pushHistory(){history.push({p:state.activePlot,c:JSON.stringify(curPlot().cells)});if(history.length>30)history.shift();}
+function pushHistory(){undoStack.push({p:state.activePlot,c:JSON.stringify(curPlot().cells)});if(undoStack.length>30)undoStack.shift();}
 function undo(){
-  if(!history.length){document.getElementById('modeHint').textContent='戻せる操作がありません';return;}
-  var h=history.pop();
+  if(!undoStack.length){document.getElementById('modeHint').textContent='戻せる操作がありません';return;}
+  var h=undoStack.pop();
   for(var i=0;i<state.plots.length;i++)if(state.plots[i].id===h.p)state.plots[i].cells=JSON.parse(h.c);
   state.activePlot=h.p;renderPlotBar();renderGrid();renderArea();renderItems();save();
 }
@@ -589,6 +614,7 @@ function initGeoInputs(){
 function applyGeo(){state.geo.lat=+document.getElementById('geoLat').value;state.geo.lon=+document.getElementById('geoLon').value;state.geo.name='指定地点';save();loadWeather();}
 async function loadWeather(){
   var msg=document.getElementById('wxMsg');if(!msg)return;msg.textContent='読み込み中…';
+  loadRainCalendar();
   var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
     '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m'+
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia%2FTokyo&forecast_days=7';
@@ -602,6 +628,53 @@ async function loadWeather(){
     document.getElementById('wxWeek').innerHTML=h;
     msg.textContent='地点：'+state.geo.name+'（'+state.geo.lat+', '+state.geo.lon+'）／ データ：Open-Meteo';
   }catch(e){msg.textContent='天気の取得に失敗：'+e.message+'（オフラインだと表示できません）';}
+}
+function rainColor(mm){
+  if(mm<0.1)return '#f6f2e8';   // 雨なし＝紙色
+  if(mm<1)return '#e9eef2';
+  if(mm<5)return '#d2e2ef';
+  if(mm<10)return '#a9cbe6';
+  if(mm<20)return '#7cafd8';
+  if(mm<40)return '#5591c9';
+  return '#3d73b0';
+}
+async function loadRainCalendar(){
+  var cal=document.getElementById('rainCal');if(!cal)return;
+  var msg=document.getElementById('rainMsg');msg.textContent='読み込み中…';
+  var u='https://api.open-meteo.com/v1/forecast?latitude='+state.geo.lat+'&longitude='+state.geo.lon+
+    '&daily=weather_code,precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=31&forecast_days=1&timezone=Asia%2FTokyo';
+  try{
+    var d=await (await fetch(u)).json(),dl=d.daily;if(!dl)throw new Error('データなし');
+    var days=[];for(var i=0;i<dl.time.length;i++){
+      days.push({iso:dl.time[i],dt:new Date(dl.time[i]+'T00:00:00'),code:dl.weather_code[i],
+        mm:dl.precipitation_sum[i]||0,tmax:dl.temperature_2m_max[i],tmin:dl.temperature_2m_min[i]});
+    }
+    var total=days.reduce(function(a,b){return a+b.mm;},0);
+    var rainy=days.filter(function(x){return x.mm>=1;}).length;
+    var heavy=days.filter(function(x){return x.mm>=10;}).length;
+    var maxd=days.reduce(function(a,b){return b.mm>a.mm?b:a;},days[0]);
+    var mood=total<50?'☀️ 少なめ':total<120?'🌤 ふつう':'🌧 多め';
+    document.getElementById('rainStats').innerHTML=
+      '<div><b>'+Math.round(total)+' mm</b><span>合計降水 / '+days.length+'日</span></div>'+
+      '<div><b>'+rainy+' 日</b><span>雨の日 (1mm↑)</span></div>'+
+      '<div><b>'+heavy+' 日</b><span>まとまった雨 (10mm↑)</span></div>'+
+      '<div><b>'+Math.round(maxd.mm)+' mm</b><span>最多 '+(maxd.dt.getMonth()+1)+'/'+maxd.dt.getDate()+'</span></div>'+
+      '<div><b style="font-size:15px">'+mood+'</b><span>ざっくり傾向</span></div>';
+    var today=new Date();today.setHours(0,0,0,0);
+    var h='';['日','月','火','水','木','金','土'].forEach(function(w,i){h+='<div class="hd'+(i===0?' sun':i===6?' sat':'')+'">'+w+'</div>';});
+    for(var p=0;p<days[0].dt.getDay();p++)h+='<div class="rcell pad"></div>';
+    days.forEach(function(x){
+      var isToday=x.dt.getTime()===today.getTime(),lab=x.mm>=0.1?((x.mm>=10?Math.round(x.mm):x.mm)+'mm'):'–';
+      h+='<div class="rcell'+(isToday?' today':'')+'" style="background:'+rainColor(x.mm)+'" title="'+x.iso+' '+wmo(x.code)[1]+'／降水 '+x.mm+'mm／気温 '+Math.round(x.tmin)+'〜'+Math.round(x.tmax)+'°">'+
+        '<div class="rd">'+(x.dt.getMonth()+1)+'/'+x.dt.getDate()+'</div>'+
+        '<div class="ri">'+wmo(x.code)[0]+'</div>'+
+        '<div class="rmm">'+lab+'</div></div>';
+    });
+    cal.innerHTML=h;
+    document.getElementById('rainLegend').innerHTML=
+      '雨量 <i style="background:'+rainColor(0)+'"></i>0 <i style="background:'+rainColor(0.5)+'"></i>〜1 <i style="background:'+rainColor(3)+'"></i>1-5 <i style="background:'+rainColor(7)+'"></i>5-10 <i style="background:'+rainColor(15)+'"></i>10-20 <i style="background:'+rainColor(30)+'"></i>20-40 <i style="background:'+rainColor(50)+'"></i>40mm↑';
+    msg.textContent='過去'+days.length+'日（今日まで）／ データ：Open-Meteo';
+  }catch(e){msg.textContent='雨カレンダーの取得に失敗：'+e.message+'（オフラインだと表示できません）';}
 }
 async function downloadArchive(){
   var s=document.getElementById('arcStart').value,e=document.getElementById('arcEnd').value;
@@ -633,7 +706,7 @@ async function pullShared(){
     state=s;renderAll();save();alert('共有版を取り込みました');
   }catch(e){alert('取り込めませんでした：'+e.message);}
 }
-function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=freshState();history=[];renderAll();save();}
+function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=freshState();undoStack=[];renderAll();save();}
 
 /* 起動 */
 async function boot(){
