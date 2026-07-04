@@ -403,7 +403,7 @@ var GROUPS={
 var SPECIAL={ path:{label:'通路・畦',color:'#e4dccb'}, empty:{label:'空き（消す）',color:'#f4f1e9'} };
 /* GDD（積算温度）品目グループ別の初期値：base=基準温度℃ / target=収穫までの目安積算℃ */
 var GDD_DEF={summer:{base:10,target:1000},bean:{base:8,target:700},winter:{base:5,target:1000},leaf:{base:5,target:450},base:{base:7,target:1100},makomo:{base:10,target:1600}};
-var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🌱',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾'};
+var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🎍',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾'}; /* ねぎ=🎍（🌱は発芽ステージと衝突するため変更・みほ指摘2026-07-04） */
 function emo(id){return EMOJI[id]||'🌱';}
 var STAGES=[{e:'🫘',l:'種・植付'},{e:'🌱',l:'発芽'},{e:'🪴',l:'苗'},{e:'🌿',l:'生育'},{e:'🌼',l:'結実'},{e:null,l:'収穫期'},{e:'✅',l:'収穫済'}];
 
@@ -549,7 +549,7 @@ function applyModeUI(){
   document.getElementById('stageLegend').style.display=(mode==='grow'||viewMap==='grow')?'':'none';
   var bg=document.getElementById('bulkGrow');if(bg)bg.style.display=(mode==='grow')?'flex':'none';
   var g=document.getElementById('grid');if(g)g.style.touchAction=(mode==='view')?'auto':'none';
-  var hint={view:'閲覧中：タップしても変わりません（安全にスクロールできます）',place:'配置中：パレットの品目でマスを塗る（ドラッグOK・1マス=1㎡）',grow:'生育中：マスをタップで1つ進む／下の「一括変更」で品目ごとにまとめて変更'};
+  var hint={view:'閲覧中：マスをタップで品目名を表示（編集はされない・スクロールも自由）',place:'配置中：パレットの品目でマスを塗る（ドラッグOK・1マス=1㎡）',grow:'生育中：マスをタップで1つ進む／下の「一括変更」で品目ごとにまとめて変更'};
   document.getElementById('modeHint').textContent=hint[mode];
 }
 function setView(v){viewMap=v;state.viewMap=v;save();applyViewUI();renderGrid();}
@@ -618,10 +618,31 @@ function undo(){
   for(var i=0;i<state.plots.length;i++)if(state.plots[i].id===h.p)state.plots[i].cells=JSON.parse(h.c);
   state.activePlot=h.p;renderPlotBar();renderGrid();renderArea();renderItems();save();
 }
+/* 閲覧モードのタップ＝品目名をトーストで表示（みほ要望2026-07-04・編集はされない） */
+function cellToast(msg){
+  var t=document.getElementById('cellToast');
+  if(!t){t=document.createElement('div');t.id='cellToast';
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(40,60,40,.92);color:#fff;padding:9px 18px;border-radius:22px;font-size:14px;z-index:99;pointer-events:none;transition:opacity .25s;max-width:85vw;white-space:nowrap;opacity:0';
+    document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._tm);t._tm=setTimeout(function(){t.style.opacity='0';},1400);
+}
+var infoTimer=null;
+function showCellInfo(el){
+  var i=+el.dataset.i,c=curPlot().cells[i];if(!c)return;
+  var msg;
+  if(SPECIAL[c.t])msg=SPECIAL[c.t].label;
+  else{var it=itemById(c.t),s=Math.min(c.s||0,STAGES.length-1);
+    msg=emo(c.t)+' '+(it?it.name:c.t)+'（'+STAGES[s].l+'）';}
+  cellToast(msg);
+  el.style.outline='2px solid #5f9e4a';el.style.outlineOffset='-2px';
+  clearTimeout(infoTimer);infoTimer=setTimeout(function(){el.style.outline='';},900);
+}
 function bindGrid(){
   var g=document.getElementById('grid');
   g.addEventListener('pointerdown',function(e){
-    if(mode==='view'||!e.target.classList.contains('cell'))return;
+    if(!e.target.classList.contains('cell'))return;
+    if(mode==='view'){showCellInfo(e.target);return;} /* preventDefaultしない＝スクロールはそのまま効く */
     e.preventDefault();pushHistory();
     if(mode==='place'){painting=true;placeAt(e.target);}
     else if(mode==='grow'){growAt(e.target);}
