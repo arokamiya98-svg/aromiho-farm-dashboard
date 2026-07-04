@@ -249,6 +249,14 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <div class="kpi" id="kpi"></div>
       <p class="note">💡 <b>見積＝計画、実績＝実際にかかった額。</b>差額がマイナス（実績＜見積）なら計画より安く上がった証。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
     </div>
+    <div class="card">
+      <h2>💴 経費の積み上げ（経費フォームから自動）</h2>
+      <p class="note">経費申請フォームに入れたものが自動でここに積み上がる。税理士に出す/出さないは後で決めればOK、まず<b>自分たちで把握する</b>のが目的。品目つきの経費は品目別に、道具・作業着などは「共通」に集まる。</p>
+      <div class="kpi" id="expKpi"></div>
+      <table class="data" id="expItemTbl"></table>
+      <table class="data" id="expMonthTbl" style="margin-top:12px"></table>
+      <p class="note" id="expMsg"></p>
+    </div>
   </section>
 
   <!-- 収穫 -->
@@ -738,6 +746,61 @@ function renderTools(){
   }
   t.innerHTML=h;
 }
+/* ===== 経費の自動積み上げ（Apps Script経由・同期コード必須＝経費は公開に載らない） ===== */
+var expData=null, expLoadedAt=0;
+async function loadExpenses(force){
+  var msg=document.getElementById('expMsg');
+  var c=syncCfg();
+  if(!c){if(msg)msg.textContent='☁️ ヘッダーの「☁️ 同期」で同期コードを設定すると、経費フォームの内容がここに自動で積み上がる';return;}
+  if(expData&&!force&&Date.now()-expLoadedAt<600000){renderExpenses();return;}
+  if(msg)msg.textContent='⏳ 経費を取得中…';
+  try{
+    var r=await fetch(syncEndpoint(c)+'&mode=expenses',{cache:'no-store'});
+    var d=await r.json();
+    if(d.error)throw new Error(d.error);
+    if(!d.rows)throw new Error('経費の口がまだ開いてない（Apps Scriptをv2に更新してね）');
+    expData=d.rows;expLoadedAt=Date.now();renderExpenses();
+  }catch(e){if(msg)msg.textContent='⚠️ 経費の取得に失敗：'+e.message;}
+}
+function renderExpenses(){
+  if(!expData)return;
+  var total=0,cnt=0,common=0,linked=0,byItem={},byMonth={},nowYm=new Date().toISOString().slice(0,7),monthNow=0;
+  expData.forEach(function(r){
+    var a=+r.amt||0;total+=a;cnt++;
+    var it=r.item||'共通';
+    if(!byItem[it])byItem[it]={amt:0,cnt:0};byItem[it].amt+=a;byItem[it].cnt++;
+    if(it==='共通')common+=a;else linked+=a;
+    var ym=(r.d||'').slice(0,7)||'不明';
+    byMonth[ym]=(byMonth[ym]||0)+a;
+    if(ym===nowYm)monthNow+=a;
+  });
+  document.getElementById('expKpi').innerHTML=
+    '<div><b>'+yen(total)+'</b><span>累計（'+cnt+'件）</span></div>'+
+    '<div><b>'+yen(monthNow)+'</b><span>今月</span></div>'+
+    '<div><b>'+yen(common)+'</b><span>共通（道具・装備）</span></div>'+
+    '<div><b>'+yen(linked)+'</b><span>品目に紐づく分</span></div>';
+  /* 品目別（金額の大きい順・共通は最後） */
+  var keys=Object.keys(byItem).sort(function(a,b){
+    if(a==='共通')return 1;if(b==='共通')return -1;return byItem[b].amt-byItem[a].amt;});
+  var max=keys.reduce(function(m,k){return Math.max(m,byItem[k].amt);},0)||1;
+  var h='<tr><th>品目</th><th></th><th>金額</th><th>件数</th></tr>';
+  keys.forEach(function(k){
+    var e=(k==='共通')?'🧰':itemMeta(k).emo;
+    var w=Math.round(byItem[k].amt/max*100);
+    h+='<tr><td>'+e+' '+esc(k)+'</td>'+
+      '<td style="min-width:90px"><div style="height:10px;border-radius:5px;background:'+(k==='共通'?'#c9c5b8':'var(--green)')+';width:'+Math.max(w,3)+'%"></div></td>'+
+      '<td class="n">'+yen(byItem[k].amt)+'</td><td class="n">'+byItem[k].cnt+'</td></tr>';
+  });
+  document.getElementById('expItemTbl').innerHTML=h;
+  /* 月別＋累計（古い月から） */
+  var months=Object.keys(byMonth).sort(),run=0;
+  var m='<tr><th>月</th><th>その月</th><th>累計</th></tr>';
+  months.forEach(function(ym){run+=byMonth[ym];
+    m+='<tr><td>'+esc(ym)+'</td><td class="n">'+yen(byMonth[ym])+'</td><td class="n total">'+yen(run)+'</td></tr>';});
+  document.getElementById('expMonthTbl').innerHTML=m;
+  var msg=document.getElementById('expMsg');
+  if(msg)msg.textContent='☁️ 経費フォームから自動取得（10分キャッシュ・タブを開き直すと更新）';
+}
 function renderKpi(){
   var seedEst=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
   var toolEst=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
@@ -963,6 +1026,7 @@ function activateTab(name){
   var el=document.getElementById('tab-'+name);if(el)el.classList.add('active');
   if(name==='weather')loadWeather(); // 遅延ロード：天気タブを開いた時だけ取得（キャッシュがあれば即描画）
   if(name==='harvest')loadHarvestSync(); // 収穫タブを開いた時だけiCloud同期(harvest.json)を取り込む
+  if(name==='budget')loadExpenses(); // 品目・予算タブを開いた時だけ経費を取得（同期コード必須）
   if(name==='analysis')loadGDD(); // 分析タブ：積算温度を計算（気温アーカイブを遅延取得）
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
