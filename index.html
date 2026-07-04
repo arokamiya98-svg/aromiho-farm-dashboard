@@ -250,11 +250,16 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <p class="note">💡 <b>見積＝計画、実績＝実際にかかった額。</b>差額がマイナス（実績＜見積）なら計画より安く上がった証。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
     </div>
     <div class="card">
-      <h2>💴 経費の積み上げ（経費フォームから自動）</h2>
-      <p class="note">経費申請フォームに入れたものが自動でここに積み上がる。税理士に出す/出さないは後で決めればOK、まず<b>自分たちで把握する</b>のが目的。品目つきの経費は品目別に、道具・作業着などは「共通」に集まる。</p>
+      <h2>💴 経費の実績（経費フォームから自動）</h2>
+      <p class="note"><b>見積＝計画の枠</b>（上の表の手入力のまま生きてる）。<b>実績＝フォームに入れた明細が自動でここに並ぶ</b>。何にどれだけ使ったかを自分たちで把握するのが目的（税理士に出すかは後で決めればOK）。</p>
       <div class="kpi" id="expKpi"></div>
+      <p class="note" style="margin:10px 0 2px"><b>🧾 明細（何にどれだけ使ったか）</b></p>
+      <table class="data" id="expDetailTbl"></table>
+      <p class="note" style="margin:2px 0 0"><button class="minibtn" id="expMoreBtn" style="display:none" onclick="expShowAll=!expShowAll;renderExpenses()">すべて表示</button></p>
+      <p class="note" style="margin:12px 0 2px"><b>📊 枠（見積）との照合</b></p>
       <table class="data" id="expItemTbl"></table>
-      <table class="data" id="expMonthTbl" style="margin-top:12px"></table>
+      <p class="note" style="margin:12px 0 2px"><b>📈 月別の積み上げ</b></p>
+      <table class="data" id="expMonthTbl"></table>
       <p class="note" id="expMsg"></p>
     </div>
   </section>
@@ -762,6 +767,11 @@ async function loadExpenses(force){
     expData=d.rows;expLoadedAt=Date.now();renderExpenses();
   }catch(e){if(msg)msg.textContent='⚠️ 経費の取得に失敗：'+e.message;}
 }
+var expShowAll=false;
+function expEstFor(name){ /* その分類の「枠（見積）」：品目→種苗費／共通→道具・資材の見積合計 */
+  if(name==='共通')return state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  var it=itemByName(name);return it?(+it.seed||0):null;
+}
 function renderExpenses(){
   if(!expData)return;
   var total=0,cnt=0,common=0,linked=0,byItem={},byMonth={},nowYm=new Date().toISOString().slice(0,7),monthNow=0;
@@ -779,18 +789,35 @@ function renderExpenses(){
     '<div><b>'+yen(monthNow)+'</b><span>今月</span></div>'+
     '<div><b>'+yen(common)+'</b><span>共通（道具・装備）</span></div>'+
     '<div><b>'+yen(linked)+'</b><span>品目に紐づく分</span></div>';
-  /* 品目別（金額の大きい順・共通は最後） */
+  /* 明細（新しい順・多くなったら折りたたみ） */
+  function md(d){return d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'—';}
+  var rows=expData.slice().sort(function(a,b){return (a.d||'')<(b.d||'')?1:-1;});
+  var LIMIT=15;
+  var dh='<tr><th>日付</th><th>内容</th><th>品目</th><th>誰</th><th>金額</th></tr>';
+  (expShowAll?rows:rows.slice(0,LIMIT)).forEach(function(r){
+    var e=(r.item==='共通'||!r.item)?'🧰':itemMeta(r.item).emo;
+    dh+='<tr><td>'+md(r.d)+'</td><td>'+esc(r.memo||'—')+'</td><td>'+e+' '+esc(r.item||'共通')+'</td>'+
+      '<td>'+esc(r.who||'')+'</td><td class="n">'+yen(+r.amt||0)+'</td></tr>';
+  });
+  document.getElementById('expDetailTbl').innerHTML=dh;
+  var more=document.getElementById('expMoreBtn');
+  if(more){more.style.display=rows.length>LIMIT?'':'none';
+    more.textContent=expShowAll?'最新'+LIMIT+'件だけ表示':'すべて表示（'+rows.length+'件）';}
+  /* 枠（見積）との照合：品目→種苗費見積／共通→道具・資材見積合計 */
   var keys=Object.keys(byItem).sort(function(a,b){
     if(a==='共通')return 1;if(b==='共通')return -1;return byItem[b].amt-byItem[a].amt;});
-  var max=keys.reduce(function(m,k){return Math.max(m,byItem[k].amt);},0)||1;
-  var h='<tr><th>品目</th><th></th><th>金額</th><th>件数</th></tr>';
+  var h='<tr><th>品目</th><th>実績</th><th>枠(見積)</th><th>差</th></tr>';
   keys.forEach(function(k){
-    var e=(k==='共通')?'🧰':itemMeta(k).emo;
-    var w=Math.round(byItem[k].amt/max*100);
-    h+='<tr><td>'+e+' '+esc(k)+'</td>'+
-      '<td style="min-width:90px"><div style="height:10px;border-radius:5px;background:'+(k==='共通'?'#c9c5b8':'var(--green)')+';width:'+Math.max(w,3)+'%"></div></td>'+
-      '<td class="n">'+yen(byItem[k].amt)+'</td><td class="n">'+byItem[k].cnt+'</td></tr>';
+    var e=(k==='共通')?'🧰':itemMeta(k).emo,est=expEstFor(k);
+    h+='<tr><td>'+e+' '+esc(k)+'</td><td class="n">'+yen(byItem[k].amt)+'</td>'+
+      '<td class="n" style="color:var(--muted)">'+(est===null?'—':yen(est))+'</td>'+
+      (est===null?'<td class="n">—</td>':diffCell(byItem[k].amt,est))+'</tr>';
   });
+  var seedAll=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
+  var toolAll=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
+  h+='<tr style="border-top:2px solid var(--line)"><td class="total">合計（初年度予算の枠消化）</td>'+
+    '<td class="n total">'+yen(total)+'</td><td class="n" style="color:var(--muted)">'+yen(seedAll+toolAll)+'</td>'+
+    diffCell(total,seedAll+toolAll)+'</tr>';
   document.getElementById('expItemTbl').innerHTML=h;
   /* 月別＋累計（古い月から） */
   var months=Object.keys(byMonth).sort(),run=0;
@@ -799,7 +826,7 @@ function renderExpenses(){
     m+='<tr><td>'+esc(ym)+'</td><td class="n">'+yen(byMonth[ym])+'</td><td class="n total">'+yen(run)+'</td></tr>';});
   document.getElementById('expMonthTbl').innerHTML=m;
   var msg=document.getElementById('expMsg');
-  if(msg)msg.textContent='☁️ 経費フォームから自動取得（10分キャッシュ・タブを開き直すと更新）';
+  if(msg)msg.textContent='☁️ 経費フォームから自動取得（10分キャッシュ・タブを開き直すと更新）。差がマイナス＝枠の中に収まってる';
 }
 function renderKpi(){
   var seedEst=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
