@@ -172,6 +172,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <button data-tab="plot" class="active">🟩 区画</button>
   <button data-tab="budget">💰 品目・予算</button>
   <button data-tab="harvest">🌾 収穫</button>
+  <button data-tab="diary">📔 日記</button>
   <button data-tab="sched">📅 スケジュール</button>
   <button data-tab="policy">🧭 方針</button>
   <button data-tab="weather">🌤 天気</button>
@@ -261,6 +262,32 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <p class="note" style="margin:12px 0 2px"><b>📈 月別の積み上げ</b></p>
       <table class="data" id="expMonthTbl"></table>
       <p class="note" id="expMsg"></p>
+    </div>
+  </section>
+
+  <!-- 日記 -->
+  <section id="tab-diary">
+    <div class="card">
+      <h2>📔 畑の日記を書く</h2>
+      <p class="note">品目を選んで、写真とひとこと。生育の様子・害虫・雑草・病気…なんでも記録。日付つきで貯まるから、あとで天気やデータと突き合わせられる宝になる🌱</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <select id="diaryItem" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px"></select>
+        <input type="date" id="diaryDate" style="padding:7px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px">
+      </div>
+      <div id="diaryTags" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+      <textarea id="diaryText" placeholder="ひとこと（例：葉の裏にアブラムシ発見。テントウムシも来てた）" style="width:100%;box-sizing:border-box;margin-top:8px;min-height:70px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <input type="file" id="diaryPhotos" accept="image/*" multiple style="font-size:12px;max-width:200px" onchange="diaryPickPhotos(this)">
+        <button class="btn" id="diaryPostBtn" onclick="postDiary()">📤 記録する</button>
+      </div>
+      <div id="diaryPreview" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+      <p class="note" id="diaryPostMsg"></p>
+    </div>
+    <div class="card">
+      <h2>📖 これまでの記録</h2>
+      <div id="diaryFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <div id="diaryList"></div>
+      <p class="note" id="diaryMsg"></p>
     </div>
   </section>
 
@@ -801,6 +828,130 @@ function renderExpenses(){
   if(msg)msg.textContent='☁️ 経費フォームから自動取得（10分キャッシュ・タブを開き直すと更新）。差がマイナス＝枠の中に収まってる';
   renderKpi(); /* 初年度サマリの実績もフォーム集計で更新 */
 }
+/* ===== 📔 畑の日記（写真＝Drive・記録＝農業DB diary_log・同期コード必須） ===== */
+var DIARY_TAGS=[{k:'生育',e:'🌱'},{k:'害虫',e:'🐛'},{k:'雑草',e:'🌿'},{k:'病気',e:'🦠'},{k:'収穫',e:'🧺'},{k:'メモ',e:'📝'}];
+var diaryData=null,diaryLoadedAt=0,diarySel={},diaryFilterItem='',diaryPhotoQueue=[],diaryInited=false;
+function initDiaryComposer(){
+  if(diaryInited)return;diaryInited=true;
+  var sel=document.getElementById('diaryItem'),h='<option value="畑全体">🏞 畑全体</option>';
+  state.items.forEach(function(it){h+='<option value="'+esc(it.name)+'">'+emo(it.id)+' '+esc(it.name)+'</option>';});
+  sel.innerHTML=h;
+  document.getElementById('diaryDate').value=new Date().toISOString().slice(0,10);
+  renderDiaryTags();
+}
+function renderDiaryTags(){
+  var h='';DIARY_TAGS.forEach(function(t){
+    var on=!!diarySel[t.k];
+    h+='<button class="btn" style="'+(on?'background:var(--green);color:#fff;border-color:var(--green)':'')+'" onclick="diarySel[\''+t.k+'\']=!diarySel[\''+t.k+'\'];renderDiaryTags()">'+t.e+' '+t.k+'</button>';
+  });
+  document.getElementById('diaryTags').innerHTML=h;
+}
+function shrinkImage(file){ /* スマホ写真を長辺1600pxのJPEGへ（アップを軽く） */
+  return new Promise(function(res,rej){
+    var img=new Image(),url=URL.createObjectURL(file);
+    img.onload=function(){
+      var MAX=1600,k=Math.min(1,MAX/Math.max(img.width,img.height));
+      var cv=document.createElement('canvas');cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      URL.revokeObjectURL(url);
+      var d=cv.toDataURL('image/jpeg',0.82);
+      res({name:(file.name||'photo').replace(/\.[^.]+$/,'')+'.jpg',mime:'image/jpeg',b64:d.split(',')[1],preview:d});
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('画像を読めませんでした'));};
+    img.src=url;
+  });
+}
+async function diaryPickPhotos(inp){
+  var msg=document.getElementById('diaryPostMsg');
+  diaryPhotoQueue=[];
+  var files=Array.prototype.slice.call(inp.files||[]);
+  if(files.length>6){msg.textContent='写真は一度に6枚まで（分けて投稿してね）';files=files.slice(0,6);}
+  for(var i=0;i<files.length;i++){
+    try{diaryPhotoQueue.push(await shrinkImage(files[i]));}catch(e){}
+  }
+  document.getElementById('diaryPreview').innerHTML=diaryPhotoQueue.map(function(p){
+    return '<img src="'+p.preview+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px">';}).join('');
+}
+async function postDiary(){
+  var msg=document.getElementById('diaryPostMsg'),c=syncCfg();
+  if(!c){msg.textContent='☁️ 先にヘッダーの「☁️ 同期」で同期コードを設定してね';return;}
+  var comment=document.getElementById('diaryText').value.trim();
+  var tags=DIARY_TAGS.filter(function(t){return diarySel[t.k];}).map(function(t){return t.k;}).join(',');
+  if(!comment&&!diaryPhotoQueue.length){msg.textContent='写真かひとこと、どちらかは入れてね';return;}
+  var btn=document.getElementById('diaryPostBtn');btn.disabled=true;msg.textContent='📤 送信中…（写真があると少しかかる）';
+  try{
+    var r=await fetch(syncEndpoint(c)+'&mode=diary',{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({date:document.getElementById('diaryDate').value,
+        item:document.getElementById('diaryItem').value,tags:tags,comment:comment,
+        by:c.name||'',photos:diaryPhotoQueue.map(function(p){return {name:p.name,mime:p.mime,b64:p.b64};})})});
+    var d=await r.json();
+    if(!d.ok)throw new Error(d.error||'不明な応答');
+    msg.textContent='✅ 記録した！（写真'+(d.photos||0)+'枚）';
+    document.getElementById('diaryText').value='';diarySel={};renderDiaryTags();
+    diaryPhotoQueue=[];document.getElementById('diaryPreview').innerHTML='';
+    document.getElementById('diaryPhotos').value='';
+    loadDiary(true);
+  }catch(e){msg.textContent='⚠️ 送れなかった：'+e.message;}
+  btn.disabled=false;
+}
+async function loadDiary(force){
+  initDiaryComposer();
+  var msg=document.getElementById('diaryMsg'),c=syncCfg();
+  if(!c){msg.textContent='☁️ 同期コードを設定すると、二人の記録がここに並ぶ';return;}
+  if(diaryData&&!force&&Date.now()-diaryLoadedAt<600000){renderDiary();return;}
+  msg.textContent='⏳ 読み込み中…';
+  try{
+    var r=await fetch(syncEndpoint(c)+'&mode=diary',{cache:'no-store'});
+    var d=await r.json();
+    if(d.error)throw new Error(d.error);
+    if(!d.rows)throw new Error('日記の口がまだ開いてない（Apps Scriptをv3に更新してね）');
+    diaryData=d.rows;diaryLoadedAt=Date.now();renderDiary();
+  }catch(e){msg.textContent='⚠️ 読み込めなかった：'+e.message;}
+}
+function diaryTagHtml(tags){
+  return (tags||'').split(',').filter(String).map(function(k){
+    var t=null;DIARY_TAGS.forEach(function(x){if(x.k===k)t=x;});
+    return '<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;background:var(--soft);color:var(--green-d)">'+(t?t.e+' ':'')+esc(k)+'</span>';
+  }).join(' ');
+}
+function renderDiary(){
+  if(!diaryData)return;
+  /* 品目フィルタ（記録がある品目だけチップ表示） */
+  var items={};diaryData.forEach(function(r){if(r.item)items[r.item]=1;});
+  var fh='<button class="btn" style="'+(diaryFilterItem===''?'background:var(--green);color:#fff;border-color:var(--green)':'')+'" onclick="diaryFilterItem=\'\';renderDiary()">すべて</button>';
+  Object.keys(items).forEach(function(nm){
+    var e=(nm==='畑全体')?'🏞':itemMeta(nm).emo;
+    fh+='<button class="btn" style="'+(diaryFilterItem===nm?'background:var(--green);color:#fff;border-color:var(--green)':'')+'" onclick="diaryFilterItem=\''+esc(nm)+'\';renderDiary()">'+e+' '+esc(nm)+'</button>';
+  });
+  document.getElementById('diaryFilter').innerHTML=fh;
+  var rows=diaryData.filter(function(r){return !diaryFilterItem||r.item===diaryFilterItem;})
+    .sort(function(a,b){return (a.d||'')<(b.d||'')?1:-1;});
+  if(!rows.length){document.getElementById('diaryList').innerHTML='<div class="bar-empty">まだ記録なし。上から最初の1件を書いてみよう🌱</div>';}
+  else{
+    var h='';
+    rows.forEach(function(r){
+      var e=(r.item==='畑全体')?'🏞':itemMeta(r.item).emo;
+      var ph=(r.photos||[]).map(function(id){
+        return '<img loading="lazy" src="https://drive.google.com/thumbnail?id='+esc(id)+'&sz=w400" '+
+          'style="width:31.5%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer" '+
+          'onclick="window.open(\'https://drive.google.com/thumbnail?id='+esc(id)+'&sz=w1600\')">';
+      }).join('');
+      h+='<div style="border-top:1px solid var(--line);padding:12px 0">'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+          '<b style="font-size:13.5px">'+esc(r.d||'')+'</b>'+
+          '<span style="font-weight:700">'+e+' '+esc(r.item||'')+'</span>'+
+          diaryTagHtml(r.tags)+
+          (r.by?'<span style="font-size:11px;color:var(--muted)">by '+esc(r.by)+'</span>':'')+
+        '</div>'+
+        (r.comment?'<div style="font-size:14px;margin-top:5px;white-space:pre-wrap">'+esc(r.comment)+'</div>':'')+
+        (ph?'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">'+ph+'</div>':'')+
+        '</div>';
+    });
+    document.getElementById('diaryList').innerHTML=h;
+  }
+  document.getElementById('diaryMsg').textContent='☁️ 全'+diaryData.length+'件（写真はDrive保管・記録は農業DBに蓄積→天気と突き合わせ分析へ）';
+}
+
 function renderKpi(){
   /* 実績＝経費フォームの累計（自動）。旧・手入力実績(act)は廃止済み（2026-07-05） */
   var seedEst=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
@@ -1032,6 +1183,7 @@ function activateTab(name){
   if(name==='weather')loadWeather(); // 遅延ロード：天気タブを開いた時だけ取得（キャッシュがあれば即描画）
   if(name==='harvest')loadHarvestSync(); // 収穫タブを開いた時だけiCloud同期(harvest.json)を取り込む
   if(name==='budget')loadExpenses(); // 品目・予算タブを開いた時だけ経費を取得（同期コード必須）
+  if(name==='diary')loadDiary(); // 日記タブ：二人の記録＋写真を取得（同期コード必須）
   if(name==='analysis')loadGDD(); // 分析タブ：積算温度を計算（気温アーカイブを遅延取得）
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
