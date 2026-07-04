@@ -233,23 +233,23 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <span class="note" id="budgetViewHint" style="margin:0;padding:6px 10px"></span>
     </div>
     <div class="card">
-      <h2 id="itemH2">品目マスタ（種苗費）</h2>
+      <h2>初年度サマリ（予実）</h2>
+      <div class="kpi" id="kpi"></div>
+      <p class="note">💡 <b>見積＝計画の枠（📝で入力）、実績＝経費フォームから自動。</b>差額がマイナス（実績＜見積）なら枠の中。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
+    </div>
+    <div class="card" id="cardItems">
+      <h2 id="itemH2">品目マスタ（見積種苗費）</h2>
       <p class="note" id="budgetHint"></p>
       <table class="data" id="itemTbl"></table>
       <button class="addbtn" onclick="addItem()">＋ 品目を追加</button>
     </div>
-    <div class="card">
+    <div class="card" id="cardTools">
       <h2>道具・資材（初年度）</h2>
-      <p class="note">初年度だけかかる初期投資。ここは「開業費の弾」＝レシート保管対象（3年戦略と直結）。2年目以降は消耗品のみ。<b>「🧾実績」に切り替えると実際に買った額を入れられる</b>（レシート管理）。</p>
+      <p class="note">初年度だけかかる初期投資の<b>計画枠</b>。ここは「開業費の弾」＝レシート保管対象（3年戦略と直結）。2年目以降は消耗品のみ。実際に買ったものは経費フォームへ→「🧾実績」に自動で並ぶ。</p>
       <table class="data" id="toolTbl"></table>
       <button class="addbtn" onclick="addTool()">＋ 道具を追加</button>
     </div>
-    <div class="card">
-      <h2>初年度サマリ（予実）</h2>
-      <div class="kpi" id="kpi"></div>
-      <p class="note">💡 <b>見積＝計画、実績＝実際にかかった額。</b>差額がマイナス（実績＜見積）なら計画より安く上がった証。種苗は自家採種＆真菰の株分けでさらに下がる。「優しいサバイバル」の柱。</p>
-    </div>
-    <div class="card">
+    <div class="card" id="cardExp">
       <h2>💴 経費の実績（経費フォームから自動）</h2>
       <p class="note"><b>見積＝計画の枠</b>（上の表の手入力のまま生きてる）。<b>実績＝フォームに入れた明細が自動でここに並ぶ</b>。何にどれだけ使ったかを自分たちで把握するのが目的（税理士に出すかは後で決めればOK）。</p>
       <div class="kpi" id="expKpi"></div>
@@ -687,68 +687,40 @@ function setBudgetView(v){budgetView=v;applyBudgetView();renderItems();renderToo
 function applyBudgetView(){
   Array.prototype.forEach.call(document.querySelectorAll('#budgetBar button'),function(b){b.classList.toggle('on',b.dataset.bview===budgetView);});
   var est=budgetView==='est';
-  var h2=document.getElementById('itemH2');if(h2)h2.textContent=est?'品目マスタ（見積種苗費）':'品目マスタ（実績＝実際に買った額）';
-  var hint=document.getElementById('budgetViewHint');if(hint)hint.textContent=est?'見積：計画した種苗費・道具費を入力':'実績：実際にかかった額を入力（見積との差も表示）';
+  /* 📝見積＝計画の枠（品目・道具の表）／🧾実績＝経費フォーム自動の明細。サマリは常時表示 */
+  var ci=document.getElementById('cardItems');if(ci)ci.style.display=est?'':'none';
+  var ct=document.getElementById('cardTools');if(ct)ct.style.display=est?'':'none';
+  var ce=document.getElementById('cardExp');if(ce)ce.style.display=est?'none':'';
+  var hint=document.getElementById('budgetViewHint');if(hint)hint.textContent=est?'見積：計画した種苗費・道具費（＝予算の枠）を入力':'実績：経費フォームの明細が自動で並ぶ（入力はフォームから）';
 }
 function diffCell(act,est){var d=(+act||0)-(+est||0);var cls=d>0?'over':d<0?'under':'';var s=d>0?'+':'';return '<td class="n diff '+cls+'">'+(d===0?'—':s+yen(d))+'</td>';}
-function renderItems(){
-  var t=document.getElementById('itemTbl'),p=curPlot(),count={},est=budgetView==='est';
+function renderItems(){ /* 見積専用（実績はフォーム自動＝cardExpへ・2026-07-05一本化） */
+  var t=document.getElementById('itemTbl'),p=curPlot(),count={};
   p.cells.forEach(function(c){var id=cellId(c);count[id]=(count[id]||0)+1;});
   document.getElementById('budgetHint').textContent='「配置㎡」は今表示中の畑「'+p.name+'」での面積です。';
-  var h=est
-    ? '<tr><th>品目</th><th>グループ</th><th>配置㎡</th><th>買い方</th><th>見積 種苗費(円)</th><th></th></tr>'
-    : '<tr><th>品目</th><th>配置㎡</th><th>見積(円)</th><th>実績 種苗費(円)</th><th>差</th><th></th></tr>';
+  var h='<tr><th>品目</th><th>グループ</th><th>配置㎡</th><th>買い方</th><th>見積 種苗費(円)</th><th></th></tr>';
   state.items.forEach(function(it,idx){
-    var nm='<td><span style="margin-right:4px">'+emo(it.id)+'</span><input style="width:calc(100% - 24px)" value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>';
-    if(est){
-      h+='<tr>'+nm+
-        '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
-        '<td class="n">'+(count[it.id]||0)+'</td>'+
-        '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
-        '<td class="n"><input class="n" type="number" value="'+(+it.seed||0)+'" onchange="upItem('+idx+',\'seed\',+this.value)"></td>'+
-        '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
-    }else{
-      h+='<tr>'+nm+
-        '<td class="n">'+(count[it.id]||0)+'</td>'+
-        '<td class="n" style="color:var(--muted)">'+yen(+it.seed||0)+'</td>'+
-        '<td class="n"><input class="n" type="number" value="'+(+it.act||0)+'" onchange="upItem('+idx+',\'act\',+this.value)"></td>'+
-        diffCell(it.act,it.seed)+
-        '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
-    }
+    h+='<tr><td><span style="margin-right:4px">'+emo(it.id)+'</span><input style="width:calc(100% - 24px)" value="'+esc(it.name)+'" onchange="upItem('+idx+',\'name\',this.value)"></td>'+
+      '<td><span class="chip-g" style="background:'+GROUPS[it.group].color+'"></span>'+GROUPS[it.group].label+'</td>'+
+      '<td class="n">'+(count[it.id]||0)+'</td>'+
+      '<td><input value="'+esc(it.buy)+'" onchange="upItem('+idx+',\'buy\',this.value)"></td>'+
+      '<td class="n"><input class="n" type="number" value="'+(+it.seed||0)+'" onchange="upItem('+idx+',\'seed\',+this.value)"></td>'+
+      '<td><button class="del" onclick="delItem('+idx+')">削除</button></td></tr>';
   });
   var seedTot=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
-  var actTot=state.items.reduce(function(a,b){return a+(+b.act||0);},0);
-  if(est){
-    h+='<tr style="border-top:2px solid var(--line)"><td class="total">見積 種苗費 合計</td><td colspan="3"></td><td class="n total">'+yen(seedTot)+'</td><td></td></tr>';
-  }else{
-    h+='<tr style="border-top:2px solid var(--line)"><td class="total">実績 種苗費 合計</td><td></td><td class="n" style="color:var(--muted)">'+yen(seedTot)+'</td><td class="n total">'+yen(actTot)+'</td>'+diffCell(actTot,seedTot)+'<td></td></tr>';
-  }
+  h+='<tr style="border-top:2px solid var(--line)"><td class="total">見積 種苗費 合計</td><td colspan="3"></td><td class="n total">'+yen(seedTot)+'</td><td></td></tr>';
   t.innerHTML=h;
 }
-function renderTools(){
-  var t=document.getElementById('toolTbl'),est=budgetView==='est';
-  var h=est?'<tr><th>道具・資材</th><th>見積 費用(円)</th><th></th></tr>'
-           :'<tr><th>道具・資材</th><th>見積(円)</th><th>実績 費用(円)</th><th>差</th><th></th></tr>';
+function renderTools(){ /* 見積専用（同上） */
+  var t=document.getElementById('toolTbl');
+  var h='<tr><th>道具・資材</th><th>見積 費用(円)</th><th></th></tr>';
   state.tools.forEach(function(to,idx){
-    if(est){
-      h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
-        '<td class="n"><input class="n" type="number" value="'+(+to.cost||0)+'" onchange="upTool('+idx+',\'cost\',+this.value)"></td>'+
-        '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
-    }else{
-      h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
-        '<td class="n" style="color:var(--muted)">'+yen(+to.cost||0)+'</td>'+
-        '<td class="n"><input class="n" type="number" value="'+(+to.act||0)+'" onchange="upTool('+idx+',\'act\',+this.value)"></td>'+
-        diffCell(to.act,to.cost)+
-        '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
-    }
+    h+='<tr><td><input value="'+esc(to.name)+'" onchange="upTool('+idx+',\'name\',this.value)"></td>'+
+      '<td class="n"><input class="n" type="number" value="'+(+to.cost||0)+'" onchange="upTool('+idx+',\'cost\',+this.value)"></td>'+
+      '<td><button class="del" onclick="delTool('+idx+')">削除</button></td></tr>';
   });
   var costTot=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
-  var actTot=state.tools.reduce(function(a,b){return a+(+b.act||0);},0);
-  if(est){
-    h+='<tr style="border-top:2px solid var(--line)"><td class="total">見積 合計</td><td class="n total">'+yen(costTot)+'</td><td></td></tr>';
-  }else{
-    h+='<tr style="border-top:2px solid var(--line)"><td class="total">実績 合計</td><td class="n" style="color:var(--muted)">'+yen(costTot)+'</td><td class="n total">'+yen(actTot)+'</td>'+diffCell(actTot,costTot)+'<td></td></tr>';
-  }
+  h+='<tr style="border-top:2px solid var(--line)"><td class="total">見積 合計</td><td class="n total">'+yen(costTot)+'</td><td></td></tr>';
   t.innerHTML=h;
 }
 /* ===== 経費の自動積み上げ（Apps Script経由・同期コード必須＝経費は公開に載らない） ===== */
@@ -827,20 +799,26 @@ function renderExpenses(){
   document.getElementById('expMonthTbl').innerHTML=m;
   var msg=document.getElementById('expMsg');
   if(msg)msg.textContent='☁️ 経費フォームから自動取得（10分キャッシュ・タブを開き直すと更新）。差がマイナス＝枠の中に収まってる';
+  renderKpi(); /* 初年度サマリの実績もフォーム集計で更新 */
 }
 function renderKpi(){
+  /* 実績＝経費フォームの累計（自動）。旧・手入力実績(act)は廃止済み（2026-07-05） */
   var seedEst=state.items.reduce(function(a,b){return a+(+b.seed||0);},0);
   var toolEst=state.tools.reduce(function(a,b){return a+(+b.cost||0);},0);
-  var seedAct=state.items.reduce(function(a,b){return a+(+b.act||0);},0);
-  var toolAct=state.tools.reduce(function(a,b){return a+(+b.act||0);},0);
-  var est=seedEst+toolEst,act=seedAct+toolAct,diff=act-est;
-  var dcol=diff>0?'#b5563f':diff<0?'var(--green-d)':'var(--muted)',ds=diff>0?'+':'';
-  document.getElementById('kpi').innerHTML=
-    '<div><b>'+yen(est)+'</b><span>見積 合計（種苗+道具）</span></div>'+
-    '<div><b>'+yen(act)+'</b><span>実績 合計</span></div>'+
-    '<div><b style="color:'+dcol+'">'+(diff===0?'—':ds+yen(diff))+'</b><span>差額（実績−見積）</span></div>';
+  var est=seedEst+toolEst;
+  var act=expData?expData.reduce(function(a,b){return a+(+b.amt||0);},0):null;
+  var html='<div><b>'+yen(est)+'</b><span>見積 合計（種苗+道具）</span></div>';
+  if(act===null){
+    html+='<div><b style="color:var(--muted)">—</b><span>実績（☁️同期設定で自動表示）</span></div>'+
+      '<div><b style="color:var(--muted)">—</b><span>差額</span></div>';
+  }else{
+    var diff=act-est,dcol=diff>0?'#b5563f':diff<0?'var(--green-d)':'var(--muted)',ds=diff>0?'+':'';
+    html+='<div><b>'+yen(act)+'</b><span>実績 合計（経費フォーム自動）</span></div>'+
+      '<div><b style="color:'+dcol+'">'+(diff===0?'—':ds+yen(diff))+'</b><span>差額（実績−見積）</span></div>';
+  }
+  document.getElementById('kpi').innerHTML=html;
 }
-function upItem(i,k,v){state.items[i][k]=v;save();if(k==='seed'||k==='act'){renderKpi();renderItems();}}
+function upItem(i,k,v){state.items[i][k]=v;save();if(k==='seed'){renderKpi();renderItems();}}
 function delItem(i){if(!confirm('「'+state.items[i].name+'」を削除しますか？'))return;state.items.splice(i,1);renderAll();save();}
 function addItem(){state.items.push({id:'item'+Date.now(),name:'新しい品目',group:'leaf',buy:'',seed:0,act:0,sch:{}});renderAll();save();}
 function upTool(i,k,v){state.tools[i][k]=v;save();renderKpi();renderTools();}
