@@ -173,7 +173,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <button class="btn" onclick="doExport()">💾 書き出し</button>
   <button class="btn" onclick="document.getElementById('imp').click()">📂 読み込み</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(event)">
-  <button class="btn" onclick="pullShared()">☁️ 共有版を取り込む</button>
+  <button class="btn" id="syncBtn" onclick="syncNow()" title="自動同期（初回は同期コードを設定）">☁️ 同期</button>
   <button class="btn" onclick="window.print()">🖨 印刷 / PDF</button>
   <button class="btn" onclick="doReset()">↺ 初期化</button>
 </header>
@@ -518,6 +518,7 @@ function save(){
   state.meta.updated=new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
   localStorage.setItem(KEY,JSON.stringify(state));
   document.getElementById('updated').textContent='最終更新 '+state.meta.updated;
+  syncMark(); /* 自動同期：編集を数秒後にクラウドへ（同期コード未設定なら何もしない） */
 }
 function itemById(id){for(var i=0;i<state.items.length;i++)if(state.items[i].id===id)return state.items[i];return null;}
 function curPlot(){for(var i=0;i<state.plots.length;i++)if(state.plots[i].id===state.activePlot)return state.plots[i];return state.plots[0];}
@@ -1138,24 +1139,111 @@ function doImport(ev){
   r.onload=function(){try{var s=normalize(JSON.parse(r.result));if(s){state=s;renderAll();save();alert('読み込みました');}else alert('形式が違います');}catch(e){alert('読み込めませんでした：'+e);}};
   r.readAsText(f);
 }
-async function pullShared(){
-  if(!confirm('リポジトリの共有版(data.json)を取り込み、今の編集を上書きします。よろしい？'))return;
-  try{var r=await fetch('data.json',{cache:'no-store'});if(!r.ok)throw new Error('data.json が見つかりません（まだ共有版が未登録かも）');
-    var s=normalize(await r.json());if(!s)throw new Error('形式が違います');
-    state=s;renderAll();save();alert('共有版を取り込みました');
-  }catch(e){alert('取り込めませんでした：'+e.message);}
+/* ===== 自動クラウド同期（Apps Script中継） =====
+   同期コード＝「https://…/exec#秘密キー」を初回に1回貼るだけ（端末のlocalStorageに保存・HTMLには埋め込まない）。
+   編集(save)→4秒後に自動PUSH／起動時・タブ復帰時に自動PULL。
+   競合＝revで検知し、内容が同じなら黙って合わせる・違うときだけ本人に確認。 */
+var SYNC_KEY='aromiho_farm_sync_v1', syncTimer=null, syncApplying=false, syncLastPull=0;
+function syncCfg(){try{return JSON.parse(localStorage.getItem(SYNC_KEY));}catch(e){return null;}}
+function syncPut(c){localStorage.setItem(SYNC_KEY,JSON.stringify(c));}
+function syncEndpoint(c){var i=c.code.lastIndexOf('#');return c.code.slice(0,i)+'?key='+encodeURIComponent(c.code.slice(i+1));}
+function syncBadge(t){var b=document.getElementById('syncBtn');if(b)b.textContent=t;}
+
+function syncMark(){ /* save()から。未送信フラグを立てて数秒後にまとめてPUSH */
+  if(syncApplying)return;
+  var c=syncCfg();if(!c)return;
+  c.dirty=true;syncPut(c);syncBadge('☁️ …');
+  clearTimeout(syncTimer);syncTimer=setTimeout(function(){syncPush(false);},4000);
 }
-function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？'))return;localStorage.removeItem(KEY);state=freshState();undoStack=[];renderAll();save();}
+
+async function syncPush(force){
+  var c=syncCfg();if(!c)return;
+  try{
+    var r=await fetch(syncEndpoint(c),{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({baseRev:c.rev||0,force:!!force,by:c.name||'',state:state})});
+    var d=await r.json();
+    if(d.ok){c.rev=d.rev;c.dirty=false;syncPut(c);syncBadge('☁️ ✅');}
+    else if(d.conflict){syncConflict(d);}
+    else throw new Error(d.error||'不明な応答');
+  }catch(e){syncBadge('☁️ ⚠️');}
+}
+
+async function syncPull(quiet){
+  var c=syncCfg();if(!c)return;
+  try{
+    var r=await fetch(syncEndpoint(c),{cache:'no-store'});
+    var d=await r.json();
+    if(d.error)throw new Error(d.error);
+    syncLastPull=Date.now();
+    if(d.state&&(d.rev||0)>(c.rev||0)){
+      if(c.dirty)syncConflict(d);else{syncApplyRemote(d);syncBadge('☁️ ✅');}
+    }else if(c.dirty){clearTimeout(syncTimer);syncPush(false);} /* 未送信が残っていれば送る */
+    else syncBadge('☁️ ✅');
+  }catch(e){if(!quiet)alert('同期できませんでした：'+e.message);syncBadge('☁️ ⚠️');}
+}
+
+function syncApplyRemote(d){ /* クラウド版を採用（save中の再PUSHはsyncApplyingで抑止） */
+  var s=normalize(d.state);if(!s)return;
+  syncApplying=true;state=s;undoStack=[];renderAll();save();syncApplying=false;
+  var c=syncCfg();c.rev=d.rev;c.dirty=false;syncPut(c);
+}
+
+function syncSame(a,b){ /* meta.updated（保存時刻）だけの差は「同じ」とみなす */
+  var x=JSON.parse(JSON.stringify(a||null)),y=JSON.parse(JSON.stringify(b||null));
+  if(x&&x.meta)delete x.meta.updated;if(y&&y.meta)delete y.meta.updated;
+  return JSON.stringify(x)===JSON.stringify(y);
+}
+function syncConflict(d){ /* 両方に編集があった時だけ本人に選ばせる */
+  if(syncSame(d.state,state)){ /* 中身が同じ＝rev番号だけ合わせて終了 */
+    var c0=syncCfg();c0.rev=d.rev;c0.dirty=false;syncPut(c0);syncBadge('☁️ ✅');return;
+  }
+  var me=(syncCfg().name||''),who=(d.by&&d.by!==me)?d.by+'さん':'相手';
+  if(confirm(who+'の新しい編集がクラウドにあります。\n【OK】クラウド版を取り込む（この端末の未送信の編集は消えます）\n【キャンセル】この端末の内容で上書き送信')){
+    syncApplyRemote(d);syncBadge('☁️ ✅');
+  }else{
+    var c=syncCfg();c.rev=d.rev;syncPut(c);syncPush(true);
+  }
+}
+
+async function syncNow(){ /* ☁️ボタン：初回＝同期コード設定／以後＝手動で今すぐ同期 */
+  var c=syncCfg();
+  if(c)return syncPull(false);
+  var code=prompt('同期コードを貼ってください（https://…/exec#キー の形）：');
+  if(!code)return;code=code.trim();
+  if(code.indexOf('https://')!==0||code.indexOf('#')<0){alert('形式が違うみたい。「https://…/exec#キー」を丸ごと貼ってね');return;}
+  var name=(prompt('この端末の名前（例：あろ / みほ）：')||'').trim();
+  c={code:code,name:name,rev:0,dirty:false};syncPut(c);
+  try{
+    var r=await fetch(syncEndpoint(c),{cache:'no-store'});
+    var d=await r.json();
+    if(d.error)throw new Error('同期コードが違うかも（'+d.error+'）');
+    if(d.state&&(d.rev||0)>0){
+      if(confirm('クラウドに既にデータがあります。\n【OK】クラウド版を取り込む\n【キャンセル】この端末の内容で上書き')){syncApplyRemote(d);}
+      else{c.rev=d.rev;syncPut(c);await syncPush(true);}
+    }else{await syncPush(true);}
+    alert('自動同期を開始しました！以後の編集は自動で共有されます');
+    syncBadge('☁️ ✅');
+  }catch(e){localStorage.removeItem(SYNC_KEY);alert('接続できませんでした：'+e.message);}
+}
+
+/* タブ復帰で自動PULL（30秒スロットル）／閉じる直前の未送信はビーコンで送る */
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&syncCfg()&&Date.now()-syncLastPull>30000)syncPull(true);
+});
+window.addEventListener('pagehide',function(){
+  var c=syncCfg();if(!c||!c.dirty)return;
+  try{navigator.sendBeacon(syncEndpoint(c),new Blob([JSON.stringify({baseRev:c.rev||0,by:c.name||'',state:state})],{type:'text/plain'}));}catch(e){}
+});
+
+function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？（自動同期中はクラウド版にも反映されます）'))return;localStorage.removeItem(KEY);state=freshState();undoStack=[];renderAll();save();}
 
 /* 起動 */
 async function boot(){
   state=load();
-  if(!localStorage.getItem(KEY)){
-    try{var r=await fetch('data.json',{cache:'no-store'});if(r.ok){var s=normalize(await r.json());if(s)state=s;}}catch(e){}
-  }
   renderAll();bindGrid();initGeoInputs();
   if(location.hash)activateTab(location.hash.slice(1)); // 天気タブへのディープリンク時のみ天気を読み込む
-  save();
+  syncApplying=true;save();syncApplying=false; /* 起動時のsaveは「編集」ではないので未送信扱いにしない */
+  if(syncCfg())syncPull(true); /* 同期設定済みなら起動時にクラウドの最新を確認 */
 }
 boot();
 </script>
