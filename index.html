@@ -87,16 +87,6 @@ td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
 .bar-val{width:74px;flex:none;text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .bar-empty{color:var(--muted);font-size:12.5px;padding:6px 2px}
 .pva-pct{font-size:10.5px;color:var(--muted);margin-left:2px}
-/* 来週の穫りごろ TODOカード */
-.todo-wrap{display:flex;flex-direction:column;gap:8px}
-.todo-card{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-left:5px solid var(--green);border-radius:10px;padding:11px 14px;background:#fff}
-.todo-card.ripe{border-left-color:var(--c-summer)}
-.todo-card .em{font-size:26px;line-height:1;flex:none}
-.todo-card .body{flex:1;min-width:0}
-.todo-card .nm{font-weight:700;font-size:14px}
-.todo-card .sub{font-size:11.5px;color:var(--muted)}
-.todo-card .tag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--soft);color:var(--green-d);flex:none;white-space:nowrap}
-.todo-card.ripe .tag{background:#f6e3dc;color:#b4573c}
 .chip-g{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .del{color:#b5563f;cursor:pointer;font-size:12px;border:none;background:none}
 .addbtn{margin-top:8px;background:var(--soft);border:1px dashed var(--line);border-radius:7px;
@@ -267,11 +257,6 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
       <h2>収穫の全体像</h2>
       <div class="kpi" id="harvestKpi"></div>
       <p class="note" id="harvestSyncMsg"></p>
-    </div>
-    <div class="card">
-      <h2>来週の“穫りごろ”リスト</h2>
-      <p class="note">カレンダー「農業-予定」の🌾（今日〜7日）＋区画で🍅収穫期にした品目を、みほと二人でパッと確認。予定はリマインダーに期日付きで書けば自動でカレンダーへ移る。穫れたら“実績”リストに書くだけ（完了チェックはいつでもOK）。</p>
-      <div class="todo-wrap" id="harvestTodo"></div>
     </div>
     <div class="card">
       <h2 id="harvestChartTitle">品目別の収穫量</h2>
@@ -562,8 +547,9 @@ function applyModeUI(){
   Array.prototype.forEach.call(document.querySelectorAll('#modeBar button'),function(b){b.classList.toggle('on',b.dataset.mode===mode);});
   document.getElementById('palette').style.display=(mode==='place')?'':'none';
   document.getElementById('stageLegend').style.display=(mode==='grow'||viewMap==='grow')?'':'none';
+  var bg=document.getElementById('bulkGrow');if(bg)bg.style.display=(mode==='grow')?'flex':'none';
   var g=document.getElementById('grid');if(g)g.style.touchAction=(mode==='view')?'auto':'none';
-  var hint={view:'閲覧中：タップしても変わりません（安全にスクロールできます）',place:'配置中：パレットの品目でマスを塗る（ドラッグOK・1マス=1㎡）',grow:'生育中：マスをタップで生育ステージが1つ進む'};
+  var hint={view:'閲覧中：タップしても変わりません（安全にスクロールできます）',place:'配置中：パレットの品目でマスを塗る（ドラッグOK・1マス=1㎡）',grow:'生育中：マスをタップで1つ進む／下の「一括変更」で品目ごとにまとめて変更'};
   document.getElementById('modeHint').textContent=hint[mode];
 }
 function setView(v){viewMap=v;state.viewMap=v;save();applyViewUI();renderGrid();}
@@ -575,7 +561,28 @@ function applyViewUI(){
 }
 function renderStageLegend(){
   var h='';STAGES.forEach(function(s,i){h+='<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:'+STAGE_COLORS[i]+';border:1px solid rgba(0,0,0,.12)"></i>'+(s.e===null?'🍅':s.e)+' '+s.l+'</span>';});
+  /* 品目ごとの一括ステージ変更（生育モードのみ表示）：ポチポチ地獄の解消 */
+  var p=curPlot(),count={};p.cells.forEach(function(c){if(c&&!SPECIAL[c.t])count[c.t]=(count[c.t]||0)+1;});
+  var prevSel=document.getElementById('bulkItem'),prev=prevSel?prevSel.value:'';
+  var opts='';Object.keys(count).forEach(function(id){var it=itemById(id);if(!it)return;
+    opts+='<option value="'+id+'"'+(id===prev?' selected':'')+'>'+emo(id)+' '+esc(it.name)+'（'+count[id]+'マス）</option>';});
+  if(opts){
+    h+='<div id="bulkGrow" style="width:100%;margin-top:8px;display:'+(mode==='grow'?'flex':'none')+';flex-wrap:wrap;gap:6px;align-items:center">'+
+      '<span style="font-size:12px;color:var(--muted)">一括変更：</span>'+
+      '<select id="bulkItem" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12.5px">'+opts+'</select>'+
+      STAGES.map(function(s,i){return '<button class="btn" onclick="bulkGrowApply('+i+')" title="'+s.l+'">'+(s.e===null?'🍅':s.e)+'</button>';}).join('')+
+      '</div>';
+  }
   document.getElementById('stageLegend').innerHTML=h;
+}
+function bulkGrowApply(si){
+  var sel=document.getElementById('bulkItem');if(!sel||!sel.value)return;
+  var id=sel.value,p=curPlot(),n=0;
+  pushHistory();
+  p.cells.forEach(function(c){if(c&&c.t===id){c.s=si;n++;}});
+  renderGrid();renderArea();renderItems();save();
+  var it=itemById(id);
+  document.getElementById('modeHint').textContent=(it?it.name:id)+' '+n+'マスを「'+STAGES[si].l+'」に一括変更（↺で戻せます）';
 }
 
 /* ===== 区画：グリッド ===== */
@@ -603,7 +610,7 @@ function drawCell(el,c){el.style.background=cellBg(c);el.title=cellTitle(c);el.t
 function placeAt(el){var i=+el.dataset.i,pl=curPlot();pl.cells[i]=SPECIAL[selPaint]?{t:selPaint}:{t:selPaint,s:0};drawCell(el,pl.cells[i]);scheduleUpdate();}
 function growAt(el){var i=+el.dataset.i,c=curPlot().cells[i];if(SPECIAL[c.t])return;c.s=((c.s||0)+1)%STAGES.length;drawCell(el,c);scheduleUpdate();}
 var upTimer=null;
-function scheduleUpdate(){clearTimeout(upTimer);upTimer=setTimeout(function(){renderArea();renderItems();save();},140);}
+function scheduleUpdate(){clearTimeout(upTimer);upTimer=setTimeout(function(){renderArea();renderItems();renderStageLegend();save();},140);}
 function pushHistory(){undoStack.push({p:state.activePlot,c:JSON.stringify(curPlot().cells)});if(undoStack.length>30)undoStack.shift();}
 function undo(){
   if(!undoStack.length){document.getElementById('modeHint').textContent='戻せる操作がありません';return;}
@@ -782,7 +789,7 @@ async function loadHarvestSync(force){
 }
 function renderHarvest(){
   if(!document.getElementById('harvestKpi'))return;
-  renderHarvestKpi();renderHarvestTodo();renderHarvestChart();renderHarvestYield();renderHarvestPvA();renderHarvestPlot();renderHarvestTable();
+  renderHarvestKpi();renderHarvestChart();renderHarvestYield();renderHarvestPvA();renderHarvestPlot();renderHarvestTable();
   var msg=document.getElementById('harvestSyncMsg');
   if(msg)msg.textContent=harvestSync?('☁️ iCloud同期：'+harvestSync.length+'件 取り込み済み（リマインダー経由）'):'☁️ iCloud同期：まだ。リマインダー「農業-収穫予定/実績」に書く→同期で自動反映（下の🔧で手動追加も可）';
 }
@@ -803,33 +810,7 @@ function renderHarvestKpi(){
     '<div><b style="font-size:13px">'+esc(fmt(latest))+'</b><span>直近の収穫</span></div>'+
     '<div><b style="font-size:13px">'+esc(fmt(nextPlan))+'</b><span>次の収穫予定</span></div>';
 }
-/* 来週の"穫りごろ"：リマインダー予定(plan・日付なし or 今日〜7日)＋区画で収穫期(s===5)の品目 */
-function renderHarvestTodo(){
-  var box=document.getElementById('harvestTodo');if(!box)return;
-  var t0=new Date();t0=new Date(t0.getFullYear(),t0.getMonth(),t0.getDate());
-  var t0s=t0.toISOString().slice(0,10),t7s=new Date(t0.getTime()+7*864e5).toISOString().slice(0,10);
-  var cards=[];
-  (harvestSync||[]).forEach(function(r){if(r.kind!=='plan')return; // 日付なしの予定もラフに拾う（あろさんの実運用）
-    if(r.date&&(r.date<t0s||r.date>t7s))return;
-    var f=recFields(r);cards.push({ripe:false,item:f.item,date:r.date||'',qty:f.qty,unit:f.unit});});
-  var ripe={};
-  state.plots.forEach(function(p){ // 区画由来の"収穫期"は、その畑で生育を実際に追い始めた場合だけ（全マス同一ステージ＝初期状態はスキップ）
-    var planted=p.cells.filter(function(c){return c&&!SPECIAL[c.t];});if(planted.length<2)return;
-    var stg={};planted.forEach(function(c){stg[c.s||0]=1;});if(Object.keys(stg).length<=1)return;
-    planted.forEach(function(c){if((c.s||0)===5)ripe[c.t]=(ripe[c.t]||0)+1;});
-  });
-  Object.keys(ripe).forEach(function(id){var it=itemById(id);cards.push({ripe:true,item:it?it.name:id,area:ripe[id]});});
-  if(!cards.length){box.innerHTML='<div class="bar-empty">今週の“穫りごろ”はまだなし。区画で品目を🍅収穫期にするか、リマインダーに収穫予定を入れると、ここにカードで出ます。</div>';return;}
-  cards.sort(function(a,b){ // 日付あり予定→日付なし予定→区画そろそろ の順
-    var ra=a.ripe?2:(a.date?0:1),rb=b.ripe?2:(b.date?0:1);if(ra!==rb)return ra-rb;
-    return (a.date||'')<(b.date||'')?-1:1;});
-  var h='';cards.forEach(function(c){var mt=itemMeta(c.item);
-    var tag=c.ripe?'🌟 そろそろ':(c.date?'📅 '+(+c.date.slice(5,7))+'/'+(+c.date.slice(8,10)):'📅 予定');
-    var sub=c.ripe?('畑に '+c.area+'㎡ が収穫期'):('目安 '+(c.qty?trim(c.qty)+(c.unit||''):'—'));
-    h+='<div class="todo-card'+(c.ripe?' ripe':'')+'"><div class="em">'+mt.emo+'</div><div class="body"><div class="nm">'+esc(c.item)+'</div><div class="sub">'+esc(sub)+'</div></div><div class="tag">'+tag+'</div></div>';
-  });
-  box.innerHTML=h;
-}
+/* ※「来週の穫りごろリスト」は2026-07-04に廃止（生育図＋全体像KPI＋カレンダー「農業-予定」で見えるため） */
 /* 単収：作付㎡（区画）× 収穫量（実績）→ 1㎡あたり */
 function renderHarvestYield(){
   var t=document.getElementById('harvestYieldTbl');if(!t)return;
