@@ -100,7 +100,7 @@ td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
 /* スケジュール */
 .gantt{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
 .gantt th,.gantt td{border:1px solid var(--line);padding:0;text-align:center;height:22px}
-.gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0}
+.gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0;position:sticky;top:0;z-index:3;box-shadow:0 1px 0 var(--line)} /* 月ヘッダーを画面上部に貼り付け（みほ要望2026-07-05） */
 .gantt td.name{text-align:left;padding:0 8px;font-size:12px;width:100px;background:#fff}
 .gantt td.winter{background:#eceef0}
 .g-plant{background:var(--c-summer)}
