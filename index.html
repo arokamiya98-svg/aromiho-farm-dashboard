@@ -101,7 +101,7 @@ td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
 /* border-collapse:collapseだとiOS Safariでsticky(月ヘッダー追従)が効かないためseparate方式 */
 .gantt{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;table-layout:fixed;border-left:1px solid var(--line);border-top:1px solid var(--line)}
 .gantt th,.gantt td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;height:22px}
-.gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0;position:sticky;top:0;z-index:3;box-shadow:0 1px 0 var(--line)} /* 月ヘッダーを画面上部に貼り付け（みほ要望2026-07-05） */
+.gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0;position:sticky;top:var(--navh,0px);z-index:3;box-shadow:0 1px 0 var(--line)} /* 月ヘッダーをナビ直下に貼り付け（みほ要望2026-07-05。ナビもstickyなのでその高さ分下げる） */
 .gantt td.name{text-align:left;padding:0 8px;font-size:12px;width:100px;background:#fff}
 .gantt td.winter{background:#eceef0}
 .g-plant{background:var(--c-summer)}
@@ -1461,9 +1461,14 @@ window.addEventListener('pagehide',function(){
 
 function doReset(){if(!confirm('編集内容をすべて破棄して初期状態に戻しますか？（自動同期中はクラウド版にも反映されます）'))return;localStorage.removeItem(KEY);state=freshState();undoStack=[];renderAll();save();}
 
+/* ナビ(sticky)の実測高さ→CSS変数へ（月ヘッダーの貼り付き位置に使う。折返しで高さが変わるためresizeでも更新） */
+function setNavH(){var n=document.querySelector('nav');if(n)document.documentElement.style.setProperty('--navh',n.offsetHeight+'px');}
+window.addEventListener('resize',setNavH);
+
 /* 起動 */
 async function boot(){
   state=load();
+  setNavH();
   renderAll();bindGrid();initGeoInputs();
   if(location.hash)activateTab(location.hash.slice(1)); // 天気タブへのディープリンク時のみ天気を読み込む
   syncApplying=true;save();syncApplying=false; /* 起動時のsaveは「編集」ではないので未送信扱いにしない */
