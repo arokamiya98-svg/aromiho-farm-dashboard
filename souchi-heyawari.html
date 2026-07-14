@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>曽地貸家 部屋割りプラン — あろ×みほ</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+    background:#f5f1e8; color:#3a3226; padding:16px; max-width:900px; margin:0 auto;
+  }
+  header { margin-bottom:14px; }
+  h1 { font-size:1.35rem; letter-spacing:.02em; }
+  .subtitle { color:#8a7d66; font-size:.85rem; margin-top:2px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chip {
+    background:#fff; border:1px solid #ddd2bd; border-radius:999px;
+    padding:4px 12px; font-size:.8rem; font-weight:600; color:#5a4f3c;
+  }
+  .chip.hl { background:#e8f0d8; border-color:#a8c07a; color:#4a6224; }
+
+  .note { font-size:.75rem; color:#9a8d76; margin:10px 0 4px; }
+
+  h2 { font-size:1.05rem; margin:22px 0 8px; display:flex; align-items:center; gap:8px; }
+  .compass {
+    font-size:.7rem; font-weight:700; color:#fff; background:#6b8e4e;
+    border-radius:6px; padding:3px 8px;
+  }
+
+  .floor {
+    position:relative; width:100%; background:#fbf8f1;
+    border:2px solid #7a6c52; border-radius:8px; overflow:hidden;
+  }
+  .floor.f1 { aspect-ratio: 1.25 / 1; }
+  .floor.f2 { aspect-ratio: 2.6 / 1; }
+
+  .room {
+    position:absolute; border:1.5px solid rgba(90,75,50,.55);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:2px; overflow:hidden;
+  }
+  .room .rname { font-size:.68rem; font-weight:700; color:#4a4130; line-height:1.25; }
+  .room .rsize { font-size:.6rem; color:#6b5f49; }
+  .room.tatami { background:repeating-linear-gradient(90deg,#b7cd90 0 14px,#aec689 14px 28px); }
+  .room.wood { background:repeating-linear-gradient(0deg,#eedbb4 0 10px,#e8d3a8 10px 20px); }
+  .room.water { background:#cfe6ee; }
+  .room.storage { background:#e3c28c; }
+  .room.plain { background:#f3ecdc; }
+  .room.small .rname { font-size:.55rem; writing-mode:vertical-rl; }
+
+  .room.assignable { cursor:pointer; }
+  .room.assignable:active { filter:brightness(1.08); }
+
+  .badge {
+    margin-top:3px; background:rgba(255,255,255,.92); border-radius:8px;
+    padding:2px 7px; font-size:.66rem; font-weight:700; color:#35502a;
+    box-shadow:0 1px 3px rgba(0,0,0,.18); max-width:96%;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .badge .emoji { font-size:.85rem; margin-right:2px; }
+  .badge.empty { color:#b0a58e; font-weight:500; }
+  .fnote {
+    margin-top:2px; font-size:.55rem; color:#7a2e2e; background:rgba(255,255,255,.75);
+    border-radius:6px; padding:1px 5px;
+  }
+
+  .legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:.7rem; color:#6b5f49; }
+  .legend span::before { content:"■ "; }
+  .lg-t::before { color:#aec689; } .lg-w::before { color:#e8d3a8; }
+  .lg-m::before { color:#cfe6ee; } .lg-s::before { color:#e3c28c; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; margin-top:8px; }
+  .card {
+    background:#fff; border:1px solid #e2d8c3; border-radius:12px; padding:12px 14px;
+  }
+  .card h3 { font-size:.85rem; margin-bottom:5px; }
+  .card p { font-size:.78rem; line-height:1.55; color:#5a5142; }
+  .card.warn { border-color:#e0b8a0; background:#fdf6f0; }
+
+  .checklist { background:#fff; border:1px solid #e2d8c3; border-radius:12px; padding:14px; margin-top:8px; }
+  .checklist label {
+    display:flex; align-items:flex-start; gap:9px; padding:7px 0;
+    font-size:.85rem; line-height:1.4; border-bottom:1px dashed #eee4d0; cursor:pointer;
+  }
+  .checklist label:last-child { border-bottom:none; }
+  .checklist input { width:19px; height:19px; accent-color:#6b8e4e; flex-shrink:0; margin-top:1px; }
+  .checklist .done { color:#b0a58e; text-decoration:line-through; }
+  .prio { color:#c0392b; font-weight:700; }
+
+  .toolbar { display:flex; gap:8px; margin-top:16px; }
+  button.reset {
+    background:none; border:1px solid #ccc0a8; color:#8a7d66; border-radius:8px;
+    padding:7px 14px; font-size:.78rem; cursor:pointer;
+  }
+  footer { margin-top:20px; font-size:.7rem; color:#a89b82; line-height:1.6; }
+
+  /* modal */
+  .overlay {
+    position:fixed; inset:0; background:rgba(40,32,20,.45); display:none;
+    align-items:flex-end; justify-content:center; z-index:10;
+  }
+  .overlay.show { display:flex; }
+  .sheet {
+    background:#fff; border-radius:18px 18px 0 0; width:100%; max-width:520px;
+    padding:18px 18px 30px;
+  }
+  .sheet h3 { font-size:1rem; margin-bottom:12px; }
+  .emoji-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .emoji-btn {
+    font-size:1.4rem; background:#f5f1e8; border:2px solid transparent;
+    border-radius:10px; padding:6px 10px; cursor:pointer;
+  }
+  .emoji-btn.sel { border-color:#6b8e4e; background:#e8f0d8; }
+  .sheet input[type=text] {
+    width:100%; font-size:1rem; padding:10px 12px; border:1px solid #d5c9b0;
+    border-radius:10px; margin-bottom:14px;
+  }
+  .sheet-btns { display:flex; gap:10px; }
+  .sheet-btns button {
+    flex:1; padding:12px; border-radius:10px; font-size:.92rem; font-weight:700;
+    border:none; cursor:pointer;
+  }
+  .b-save { background:#6b8e4e; color:#fff; }
+  .b-clear { background:#f0e8d8; color:#8a7d66; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏡 曽地貸家 部屋割りプラン</h1>
+  <div class="subtitle">新潟県柏崎市曽地1572 ｜ あろ×みほ で自由に編集してね（部屋をタップ）</div>
+  <div class="chips">
+    <span class="chip hl">3.8万円/月</span>
+    <span class="chip">190㎡・5DK＋納戸</span>
+    <span class="chip hl">🐕 犬・猫可（敷金3ヶ月）</span>
+    <span class="chip">🚗 駐車3台（屋根付き1）</span>
+    <span class="chip">セブン曽地店 400m</span>
+    <span class="chip">ai-will 0257-35-5370</span>
+  </div>
+  <div class="note">※模式図です。寸法・位置は実際の図面を参照。方位は「南向き」表記から <b>上＝北と仮定</b>（要現地確認）。</div>
+</header>
+
+<h2>1F <span class="compass">↑ 北（仮）</span></h2>
+<div class="floor f1" id="floor1"></div>
+<div class="legend">
+  <span class="lg-t">畳</span><span class="lg-w">板間・DK</span><span class="lg-m">水回り</span><span class="lg-s">収納</span>
+</div>
+
+<h2>2F <span class="compass">↑ 北（仮）</span></h2>
+<div class="floor f2" id="floor2"></div>
+
+<h2>🧭 風水・家相メモ</h2>
+<div class="cards">
+  <div class="card">
+    <h3>🛏 北西の8帖＝主寝室に吉</h3>
+    <p>北西は「乾（いぬい）＝家の主の方位」。夫婦の主寝室にベスト格。北は安眠の方位で、北枕も風水的にはむしろ吉（縁起の話はお釈迦様由来の風習）。</p>
+  </div>
+  <div class="card warn">
+    <h3>⚠️ 北東（鬼門）に浴室・脱衣室</h3>
+    <p>伝統家相で「鬼門の水回り」は要注意とされる配置。対策は<b>清潔＆換気の徹底</b>。現実面でも北東の水回りは冬に冷えて湿気やすい→カビ・凍結対策を。</p>
+  </div>
+  <div class="card">
+    <h3>💻 机は東向き＋壁を背に</h3>
+    <p>東は情報・成長の方位でデスクワークと好相性。壁を背にしてドアが視界に入る「コマンドポジション」が集中しやすい。背後に窓・ドアは避ける。</p>
+  </div>
+  <div class="card">
+    <h3>❄️ 冬の運用（風水より効くやつ）</h3>
+    <p>190㎡を全部暖めるのは無理。<b>寝室＋書斎＋DKの3部屋に暖房を絞る</b>運用が基本。南の続き間は晴れた昼のリビング＆ゴールデンのくつろぎゾーンに。</p>
+  </div>
+</div>
+
+<h2>📞 ai-will 確認リスト</h2>
+<div class="checklist" id="checklist"></div>
+
+<div class="toolbar">
+  <button class="reset" onclick="resetAll()">部屋割りとチェックを初期状態に戻す</button>
+</div>
+
+<footer>
+  作成：おぱ（2026-07-14）／出典：らくすむ 物件コード 00037-100276（情報登録 2026/05/25）<br>
+  編集内容はこの端末のブラウザにだけ保存されます。共有したいときはスクショが確実。
+</footer>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <h3 id="sheetTitle">部屋の用途</h3>
+    <div class="emoji-row" id="emojiRow"></div>
+    <input type="text" id="useText" placeholder="用途を入力（例：主寝室、書斎、犬ゾーン…）">
+    <div class="sheet-btns">
+      <button class="b-clear" onclick="clearRoom()">未定にする</button>
+      <button class="b-save" onclick="saveRoom()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LS_KEY = 'souchi_plan_v1';
+const LS_CHECK = 'souchi_check_v1';
+
+// x, y, w, h は %。type: tatami/wood/water/storage/plain
+const ROOMS = [
+  // ---- 1F ----
+  { f:1, id:'oshiire_nw', name:'押入', x:0, y:0, w:8, h:13, type:'storage', small:true },
+  { f:1, id:'tokonoma_nw', name:'床の間', x:0, y:13, w:8, h:13, type:'storage', small:true },
+  { f:1, id:'washitsu_nw', name:'和室', size:'8帖', x:8, y:0, w:26, h:26, type:'tatami', assign:true,
+    def:{e:'🛏', t:'主寝室（あろ×みほ）'}, fnote:'北西＝乾・主人の方位◎' },
+  { f:1, id:'mono_nw', name:'物入', x:34, y:0, w:6, h:26, type:'storage', small:true },
+  { f:1, id:'dk', name:'DK', size:'9.25帖', x:40, y:0, w:26, h:26, type:'wood', assign:true,
+    def:{e:'🍳', t:'ダイニング＋サブ作業'} },
+  { f:1, id:'datsui', name:'脱衣室', x:66, y:0, w:11, h:13, type:'water', fnote:'鬼門⚠️清潔第一' },
+  { f:1, id:'bath', name:'浴室', x:77, y:0, w:11, h:13, type:'water' },
+  { f:1, id:'mono_w', name:'物入', x:0, y:26, w:8, h:9, type:'storage', small:true },
+  { f:1, id:'rouka', name:'廊下', x:8, y:26, w:32, h:9, type:'wood' },
+  { f:1, id:'stairs', name:'階段', x:46, y:26, w:9, h:12, type:'plain' },
+  { f:1, id:'nando1', name:'納戸', x:66, y:13, w:22, h:42, type:'storage', assign:true,
+    def:{e:'📦', t:'農業資材・保存食ストック'} },
+  { f:1, id:'butsuma', name:'仏間', x:0, y:35, w:8, h:12, type:'storage', small:true },
+  { f:1, id:'tokonoma_sw', name:'床の間', x:0, y:47, w:8, h:12, type:'storage', small:true },
+  { f:1, id:'washitsu_sw', name:'和室', size:'8帖', x:8, y:35, w:25, h:33, type:'tatami', assign:true,
+    def:{e:'🛋', t:'リビング（続き間）'} },
+  { f:1, id:'washitsu_s', name:'和室', size:'8帖', x:33, y:35, w:25, h:33, type:'tatami', assign:true,
+    def:{e:'🐕', t:'ゴールデン＆客間'} },
+  { f:1, id:'hall', name:'ホール', x:58, y:55, w:8, h:24, type:'plain', small:true },
+  { f:1, id:'engawa', name:'縁側', x:0, y:68, w:58, h:10, type:'wood', assign:true,
+    def:{e:'☀️', t:'日向ぼっこ・洗濯物'} },
+  { f:1, id:'senmen', name:'洗面室', x:66, y:55, w:13, h:12, type:'water' },
+  { f:1, id:'toilet', name:'トイレ', x:79, y:55, w:9, h:12, type:'water' },
+  { f:1, id:'genkan', name:'玄関', x:40, y:78, w:20, h:14, type:'plain' },
+  // ---- 2F ----
+  { f:2, id:'shuno2w', name:'収納', x:2, y:4, w:9, h:46, type:'storage', small:true },
+  { f:2, id:'oshiire2w', name:'押入', x:2, y:50, w:9, h:46, type:'storage', small:true },
+  { f:2, id:'washitsu6', name:'和室', size:'6帖', x:11, y:4, w:28, h:92, type:'tatami', assign:true,
+    def:{e:'🎨', t:'みほスペース（案・要相談）'} },
+  { f:2, id:'washitsu45', name:'和室', size:'4.5帖', x:39, y:4, w:23, h:92, type:'tatami', assign:true,
+    def:{e:'💻', t:'あろ書斎（東向きデスク）'} },
+  { f:2, id:'oshiire2e', name:'押入', x:62, y:50, w:9, h:46, type:'storage', small:true },
+  { f:2, id:'shuno2e', name:'収納', x:62, y:4, w:9, h:46, type:'storage', small:true },
+  { f:2, id:'nando2', name:'納戸', x:71, y:4, w:27, h:92, type:'storage', assign:true,
+    def:{e:'🧺', t:'季節物・思い出BOX'} },
+];
+
+const CHECKS = [
+  { id:'dog',  t:'ゴールデンレトリーバー（大型犬）OKか', prio:true },
+  { id:'age',  t:'築年数の実際・耐震の状況' },
+  { id:'ins',  t:'断熱・隙間風・冬の室温の実情（前住人の暖房方法）' },
+  { id:'heat', t:'暖房設備は何が置けるか（灯油ストーブ・FF式など）' },
+  { id:'frz',  t:'水道の凍結対策（水抜きの要否）' },
+  { id:'snow', t:'雪下ろし・除雪の要否と負担範囲' },
+  { id:'fee',  t:'共同アンテナ代・町内費の実額' },
+  { id:'niwa', t:'庭・敷地の範囲（犬の放し飼い・家庭菜園はどこまで可か）' },
+  { id:'park', t:'駐車3台の位置（軽トラ＋ジムニー＋α）' },
+  { id:'net',  t:'ネット回線（光が来ているか）' },
+];
+
+const EMOJIS = ['🛏','💻','🎨','🛋','🐕','🍳','📦','🧺','🌱','📚','🏋️','☀️','🎸','❓'];
+
+let plan = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+let checks = JSON.parse(localStorage.getItem(LS_CHECK) || '{}');
+let currentRoom = null, selEmoji = '';
+
+function getAssign(r) {
+  if (plan[r.id]) return plan[r.id];       // {e,t} or {clear:true}
+  return r.def || null;
+}
+
+function render() {
+  document.getElementById('floor1').innerHTML = '';
+  document.getElementById('floor2').innerHTML = '';
+  for (const r of ROOMS) {
+    const d = document.createElement('div');
+    d.className = 'room ' + r.type + (r.small ? ' small' : '') + (r.assign ? ' assignable' : '');
+    d.style.cssText = `left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%`;
+    let inner = `<div class="rname">${r.name}${r.size ? '<br><span class="rsize">' + r.size + '</span>' : ''}</div>`;
+    if (r.assign) {
+      const a = getAssign(r);
+      inner += (a && !a.clear)
+        ? `<div class="badge"><span class="emoji">${a.e || ''}</span>${a.t || ''}</div>`
+        : `<div class="badge empty">タップで用途を決める</div>`;
+    }
+    if (r.fnote) inner += `<div class="fnote">${r.fnote}</div>`;
+    d.innerHTML = inner;
+    if (r.assign) d.onclick = () => openSheet(r);
+    document.getElementById('floor' + r.f).appendChild(d);
+  }
+  const cl = document.getElementById('checklist');
+  cl.innerHTML = '';
+  for (const c of CHECKS) {
+    const lab = document.createElement('label');
+    const done = !!checks[c.id];
+    lab.innerHTML = `<input type="checkbox" ${done ? 'checked' : ''}>
+      <span class="${done ? 'done' : ''}">${c.prio ? '<span class="prio">★最優先 </span>' : ''}${c.t}</span>`;
+    lab.querySelector('input').onchange = (e) => {
+      checks[c.id] = e.target.checked;
+      localStorage.setItem(LS_CHECK, JSON.stringify(checks));
+      render();
+    };
+    cl.appendChild(lab);
+  }
+}
+
+function openSheet(r) {
+  currentRoom = r;
+  const a = getAssign(r);
+  selEmoji = (a && !a.clear) ? (a.e || '') : '';
+  document.getElementById('sheetTitle').textContent =
+    `${r.name}${r.size ? ' ' + r.size : ''}（${r.f}F）の用途`;
+  document.getElementById('useText').value = (a && !a.clear) ? (a.t || '') : '';
+  const row = document.getElementById('emojiRow');
+  row.innerHTML = '';
+  for (const e of EMOJIS) {
+    const b = document.createElement('button');
+    b.className = 'emoji-btn' + (e === selEmoji ? ' sel' : '');
+    b.textContent = e;
+    b.onclick = () => {
+      selEmoji = e;
+      row.querySelectorAll('.emoji-btn').forEach(x => x.classList.toggle('sel', x.textContent === e));
+    };
+    row.appendChild(b);
+  }
+  document.getElementById('overlay').classList.add('show');
+}
+
+function saveRoom() {
+  const t = document.getElementById('useText').value.trim();
+  plan[currentRoom.id] = t ? { e: selEmoji, t } : { clear: true };
+  localStorage.setItem(LS_KEY, JSON.stringify(plan));
+  closeSheet(); render();
+}
+function clearRoom() {
+  plan[currentRoom.id] = { clear: true };
+  localStorage.setItem(LS_KEY, JSON.stringify(plan));
+  closeSheet(); render();
+}
+function closeSheet() { document.getElementById('overlay').classList.remove('show'); }
+document.getElementById('overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'overlay') closeSheet();
+});
+
+function resetAll() {
+  if (!confirm('部屋割りとチェックリストを初期案に戻す？')) return;
+  plan = {}; checks = {};
+  localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_CHECK);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
