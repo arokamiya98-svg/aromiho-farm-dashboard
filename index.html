@@ -189,6 +189,7 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
         <div class="plotsel" id="plotSel"></div>
         <button class="minibtn" onclick="addPlot()">＋畑を追加</button>
         <button class="minibtn" onclick="renamePlot()">✎ 名前変更</button>
+        <button class="minibtn" onclick="resizePlot()">📐 サイズ変更</button>
         <button class="minibtn" onclick="delPlot()">🗑 削除</button>
       </div>
       <div class="toolbar">
@@ -571,10 +572,24 @@ function addPlot(){
   var name=prompt('新しい畑の名前は？（例：ハーブ畑 / 借り増した畑）','新しい畑');
   if(!name)return;
   var cols=Math.max(2,Math.min(30,parseInt(prompt('横のマス数（1マス=1m）',8),10)||8));
-  var rows=Math.max(2,Math.min(40,parseInt(prompt('縦のマス数（1マス=1m）',10),10)||10));
+  var rows=Math.max(2,Math.min(60,parseInt(prompt('縦のマス数（1マス=1m）',10),10)||10));
   var id='plot'+Date.now(),cells=[];for(var i=0;i<cols*rows;i++)cells.push({t:'empty'});
   state.plots.push({id:id,name:name,cols:cols,rows:rows,cells:cells});
   setPlot(id);
+}
+function resizePlot(){ /* 今の配置はそのまま残して、右・下にマスを足す（減らす時は消えるマスを確認） */
+  var p=curPlot();
+  var cols=parseInt(prompt('横のマス数（1マス=1m）　今：'+p.cols,p.cols),10);if(!cols)return;
+  var rows=parseInt(prompt('縦のマス数（1マス=1m）　今：'+p.rows,p.rows),10);if(!rows)return;
+  cols=Math.max(2,Math.min(30,cols));rows=Math.max(2,Math.min(60,rows));
+  if(cols===p.cols&&rows===p.rows)return;
+  var lost=0,cells=[];
+  for(var r=0;r<p.rows;r++)for(var c=0;c<p.cols;c++)if((r>=rows||c>=cols)&&p.cells[r*p.cols+c].t!=='empty')lost++;
+  if(lost&&!confirm('小さくすると、塗ってあるマスが'+lost+'個消えます。続けますか？'))return;
+  for(var r2=0;r2<rows;r2++)for(var c2=0;c2<cols;c2++)
+    cells.push((r2<p.rows&&c2<p.cols)?p.cells[r2*p.cols+c2]:{t:'empty'});
+  p.cols=cols;p.rows=rows;p.cells=cells;undoStack=[];
+  save();renderGrid();renderArea();renderItems();
 }
 function renamePlot(){var p=curPlot();var n=prompt('畑の名前',p.name);if(n){p.name=n;save();renderPlotBar();}}
 function delPlot(){
