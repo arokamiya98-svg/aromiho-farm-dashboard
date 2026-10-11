@@ -54,9 +54,11 @@ section.active{display:block}
 /* 区画グリッド */
 .plot-wrap{display:inline-block;position:relative}
 .compass{font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center}
-.grid{display:grid;grid-auto-rows:26px;gap:1px;background:var(--line);border:2px solid var(--green-d)}
+.grid{display:grid;width:max-content;grid-auto-rows:26px;gap:1px;background:var(--line);border:2px solid var(--green-d)}
 .cell{cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
 .cell:hover{outline:2px solid var(--green-d);outline-offset:-2px;z-index:2}
+.ulab{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--green-d);background:#f7f3ea;cursor:pointer;user-select:none}
+.ulab:hover{background:#e9e1cf}
 .scale{font-size:10px;color:var(--muted);text-align:center;margin-top:3px}
 .palette{display:flex;flex-direction:column;gap:5px;min-width:150px}
 .sw{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);
@@ -445,7 +447,7 @@ var GROUPS={
 var SPECIAL={ path:{label:'通路・畦',color:'#e4dccb'}, empty:{label:'空き（消す）',color:'#f4f1e9'} };
 /* GDD（積算温度）品目グループ別の初期値：base=基準温度℃ / target=収穫までの目安積算℃ */
 var GDD_DEF={summer:{base:10,target:1000},bean:{base:8,target:700},winter:{base:5,target:1000},leaf:{base:5,target:450},base:{base:7,target:1100},makomo:{base:10,target:1600}};
-var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🎍',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾'}; /* ねぎ=🎍（🌱は発芽ステージと衝突するため変更・みほ指摘2026-07-04） */
+var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🎍',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾',toh:'🥬',shungiku:'🌿',lettuce:'🥗',garlic:'🧄'}; /* ねぎ=🎍（🌱は発芽ステージと衝突するため変更・みほ指摘2026-07-04） */
 function emo(id){return EMOJI[id]||'🌱';}
 var STAGES=[{e:'🫘',l:'種・植付'},{e:'🌱',l:'発芽'},{e:'🪴',l:'苗'},{e:'🌿',l:'生育'},{e:'🌼',l:'結実'},{e:null,l:'収穫期'},{e:'✅',l:'収穫済'}];
 
@@ -470,6 +472,10 @@ var DEFAULT={
     {id:'komatsu',name:'小松菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
     {id:'bokchoy',name:'青梗菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
     {id:'basil',name:'バジル',group:'leaf',buy:'種 1袋',seed:300,sch:{4:'p',5:'g',6:'h',7:'h',8:'h'}},
+    {id:'toh',name:'トウ菜',group:'leaf',buy:'種 1袋',seed:300,sch:{10:'p',11:'g',12:'h',3:'h',4:'h'}},
+    {id:'shungiku',name:'春菊',group:'leaf',buy:'種 1袋',seed:300,sch:{10:'p',11:'h',12:'h'}},
+    {id:'lettuce',name:'リーフレタス',group:'leaf',buy:'種 1袋',seed:300,sch:{10:'p',11:'h',12:'h'}},
+    {id:'garlic',name:'にんにく',group:'base',buy:'種球',seed:1000,sch:{10:'p',11:'g',3:'g',4:'g',5:'g',6:'h'}},
     {id:'makomo',name:'真菰',group:'makomo',buy:'株苗 3〜5株',seed:4000,sch:{3:'p',4:'p',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}},
     riceItem()
   ],
@@ -655,12 +661,38 @@ function swHtml(id,name){
 }
 function renderGrid(){
   var p=curPlot(),g=document.getElementById('grid'),h='';
-  g.style.gridTemplateColumns='repeat('+p.cols+',26px)';
+  g.style.gridTemplateColumns=(p.une?'30px ':'')+'repeat('+p.cols+',26px)';
   for(var i=0;i<p.cells.length;i++){var c=p.cells[i];
+    if(p.une&&i%p.cols===0){var r=i/p.cols;h+='<div class="ulab" data-r="'+r+'" title="'+esc(uneSummary(p,r))+'">'+(r+1)+'</div>';}
     h+='<div class="cell" data-i="'+i+'" style="background:'+cellBg(c)+'" title="'+esc(cellTitle(c))+'">'+cellGlyph(c)+'</div>';
   }
   g.innerHTML=h;
-  document.getElementById('plotScale').textContent='← 約'+p.cols+'m →　　縦 約'+p.rows+'m　（'+p.cols*p.rows+'㎡）';
+  document.getElementById('plotScale').textContent=p.une
+    ?'↑奥＝畝1｜'+p.rows+'畝×約'+p.cols+'m（'+p.cols*p.rows+'㎡）｜番号タップ＝畝ごと'
+    :'← 約'+p.cols+'m →　　縦 約'+p.rows+'m　（'+p.cols*p.rows+'㎡）';
+}
+/* 畝モード（p.une）：1行＝1畝。左の番号タップで畝ごとに表示・塗り・生育を進める */
+function uneSummary(p,r){
+  var m={},o=[];
+  for(var c=0;c<p.cols;c++){var x=p.cells[r*p.cols+c],k=cellId(x);if(!m[k]){m[k]=x;o.push(k);}}
+  return '畝'+(r+1)+'：'+o.map(function(k){
+    if(SPECIAL[k])return SPECIAL[k].label;
+    var it=itemById(k);return emo(k)+' '+(it?it.name:k)+'（'+STAGES[Math.min(m[k].s||0,STAGES.length-1)].l+'）';
+  }).join(' ／ ');
+}
+function uneTap(r){
+  var p=curPlot(),i0=r*p.cols,i;
+  if(mode==='view'){cellToast(uneSummary(p,r));return;}
+  pushHistory();
+  if(mode==='place'){for(i=0;i<p.cols;i++)p.cells[i0+i]=SPECIAL[selPaint]?{t:selPaint}:{t:selPaint,s:0};}
+  else if(mode==='grow'){
+    var first=null;for(i=0;i<p.cols;i++)if(!SPECIAL[p.cells[i0+i].t]){first=p.cells[i0+i];break;}
+    if(!first)return;
+    var ns=((first.s||0)+1)%STAGES.length;
+    for(i=0;i<p.cols;i++)if(!SPECIAL[p.cells[i0+i].t])p.cells[i0+i].s=ns;
+    document.getElementById('modeHint').textContent='畝'+(r+1)+'を「'+STAGES[ns].l+'」に（↺で戻せます）';
+  }
+  renderGrid();scheduleUpdate();
 }
 function drawCell(el,c){el.style.background=cellBg(c);el.title=cellTitle(c);el.textContent=cellGlyph(c);}
 function placeAt(el){var i=+el.dataset.i,pl=curPlot();pl.cells[i]=SPECIAL[selPaint]?{t:selPaint}:{t:selPaint,s:0};drawCell(el,pl.cells[i]);scheduleUpdate();}
@@ -678,7 +710,7 @@ function undo(){
 function cellToast(msg){
   var t=document.getElementById('cellToast');
   if(!t){t=document.createElement('div');t.id='cellToast';
-    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(40,60,40,.92);color:#fff;padding:9px 18px;border-radius:22px;font-size:14px;z-index:99;pointer-events:none;transition:opacity .25s;max-width:85vw;white-space:nowrap;opacity:0';
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(40,60,40,.92);color:#fff;padding:9px 18px;border-radius:22px;font-size:14px;z-index:99;pointer-events:none;transition:opacity .25s;max-width:85vw;white-space:normal;text-align:center;opacity:0';
     document.body.appendChild(t);}
   t.textContent=msg;t.style.opacity='1';
   clearTimeout(t._tm);t._tm=setTimeout(function(){t.style.opacity='0';},1400);
@@ -690,6 +722,7 @@ function showCellInfo(el){
   if(SPECIAL[c.t])msg=SPECIAL[c.t].label;
   else{var it=itemById(c.t),s=Math.min(c.s||0,STAGES.length-1);
     msg=emo(c.t)+' '+(it?it.name:c.t)+'（'+STAGES[s].l+'）';}
+  var pl=curPlot();if(pl.une)msg='畝'+(Math.floor(i/pl.cols)+1)+'：'+msg;
   cellToast(msg);
   el.style.outline='2px solid #5f9e4a';el.style.outlineOffset='-2px';
   clearTimeout(infoTimer);infoTimer=setTimeout(function(){el.style.outline='';},900);
@@ -697,6 +730,7 @@ function showCellInfo(el){
 function bindGrid(){
   var g=document.getElementById('grid');
   g.addEventListener('pointerdown',function(e){
+    if(e.target.classList.contains('ulab')){if(mode!=='view')e.preventDefault();uneTap(+e.target.dataset.r);return;}
     if(!e.target.classList.contains('cell'))return;
     if(mode==='view'){showCellInfo(e.target);return;} /* preventDefaultしない＝スクロールはそのまま効く */
     e.preventDefault();pushHistory();
