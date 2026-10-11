@@ -94,6 +94,15 @@ td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
 .addbtn{margin-top:8px;background:var(--soft);border:1px dashed var(--line);border-radius:7px;
   padding:6px 12px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--green-d)}
 .total{font-weight:700;color:var(--green-d)}
+.crop{border:1px solid var(--line);border-radius:10px;margin:6px 0;background:#fff}
+.crop summary{cursor:pointer;padding:9px 12px;font-weight:600;font-size:13px}
+.crop[open] summary{border-bottom:1px solid var(--line)}
+.crop p{font-size:12.5px;line-height:1.75;margin:8px 12px}
+.src{font-size:11.5px;color:var(--muted);line-height:1.7;word-break:break-all}
+.src a,.crop a{color:var(--green-d)}
+.sched-todo td:first-child{white-space:nowrap;font-weight:700;color:var(--green-d);vertical-align:top}
+.sched-todo td{font-size:12.5px;line-height:1.7}
+.local{font-size:12.5px;line-height:1.8;padding-left:18px}
 .note{font-size:12px;color:var(--muted);background:var(--soft);border-radius:8px;padding:10px 12px;margin-top:10px}
 .kpi{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
 .kpi div{background:var(--soft);border-radius:9px;padding:10px 14px;min-width:120px}
@@ -105,6 +114,7 @@ td.diff.over{color:#b5563f}td.diff.under{color:var(--green-d)}
 .gantt th,.gantt td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;height:22px}
 .gantt th{background:var(--soft);color:var(--muted);font-weight:600;padding:4px 0;position:sticky;top:var(--navh,0px);z-index:3;box-shadow:0 1px 0 var(--line)} /* 月ヘッダーをナビ直下に貼り付け（みほ要望2026-07-05。ナビもstickyなのでその高さ分下げる） */
 .gantt td.name{text-align:left;padding:0 8px;font-size:12px;width:100px;background:#fff}
+.gantt th.name{width:84px}
 .gantt td.winter{background:#eceef0}
 .g-plant{background:var(--c-summer)}
 .g-grow{background:#cfe0c9}
@@ -333,8 +343,9 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
   <!-- スケジュール -->
   <section id="tab-sched">
     <div class="card">
-      <h2>年間スケジュール（柏崎 / 雪国前提）</h2>
-      <p class="note"><b>前提：</b>2026年9月末〜10月着任＝<b>2026秋は畑選び・土見が中心</b>、フル稼働の実質1年目は<b>2027春</b>。作業は🔥<b>4〜5月（植付け）</b>と🔥<b>10〜11月（収穫・越冬準備）</b>の二山に集中。12〜3月は雪＝保存野菜で越冬＆計画の農閑期。</p>
+      <h2>年間スケジュール（柏崎・曽地／雪国前提）</h2>
+      <p class="note"><b>前提：</b>2026年10月に曽地の畑（17畝）スタート。この秋は葉物・にんにく・玉ねぎで足慣らし、<b>フル稼働は2027年の春から</b>。作業の山は🔥<b>4月下旬〜5月（夏野菜の植え付け）</b>と🔥<b>10〜11月（雪が降る前の収穫・越冬準備）</b>の2回。12〜3月は雪の下＝保存野菜で越冬しながら計画を立てる時期。<br>
+      <b>雪国の基本ルール：</b>遅霜が心配なくなる<b>GW明け（5月中旬）まで夏野菜は植えない</b>／<b>11月中に掘れるものは掘る</b>（根雪の前に）／粘土質なので<b>高畝で水はけ</b>を確保する。</p>
       <table class="gantt" id="gantt"></table>
       <div class="gl">
         <span><i class="g-plant"></i>植付け・種まき</span>
@@ -342,7 +353,99 @@ ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:3px 0}
         <span><i class="g-harvest"></i>収穫</span>
         <span><i style="background:#eceef0"></i>雪・農閑期</span>
       </div>
-      <p class="note">🌾 真菰は春植え→秋どりで1年で回る多年草。収穫が秋の忙しい山と重なるが、独立後の主力商品なので頑張りどころ。</p>
+      <p class="note">時期は柏崎の平野部〜中山間地の目安。その年の雪どけや気温で前後するので、<b>大日さん・ご近所さんの動きを見て合わせる</b>のがいちばん確実。</p>
+    </div>
+
+    <div class="card">
+      <h2>📅 月ごとのやること（2026秋〜2027）</h2>
+      <table class="data sched-todo">
+        <tr><th>月</th><th>やること</th></tr>
+        <tr><td>10月</td><td>🧄 にんにく植え付け済み・葉物の間引き／🧅 <b>玉ねぎの準備</b>（苦土石灰→2週間あけて元肥→高畝）／苗の予約</td></tr>
+        <tr><td>11月</td><td>🧅 <b>玉ねぎ定植（上旬まで）</b>／🥬 葉物の収穫／雪の前に支柱・資材を片付ける／空いた畝に堆肥と籾殻を入れて冬越し</td></tr>
+        <tr><td>12〜2月</td><td>❄️ 雪の下。<b>来年の作付け計画・連作チェック・種と苗の注文</b>（アスパラの大苗・夏野菜苗の予約は早めに）／保存野菜を食べて暮らす</td></tr>
+        <tr><td>3月</td><td>雪どけしたら🧅🧄 <b>すぐ追肥（3月中に。下旬以降はやらない）</b>／🥕 雪下にんじん（やっていれば）を掘る／畝の水はけを確認</td></tr>
+        <tr><td>4月</td><td>🥔 <b>じゃがいも植え付け（中旬）</b>／🥢 アスパラ定植／🎍 ねぎの種まき／🥬 キャベツ苗の植え付け／小松菜・青梗菜の種まき／夏野菜の畝を準備（マルチを張って地温を上げる）</td></tr>
+        <tr><td>5月</td><td>🔥 <b>GW明けに夏野菜を一斉定植</b>：🍅🍆🥒🫑🎃 大葉・バジル／🫛 枝豆の1回目の種まき／下旬に🍠 さつまいも</td></tr>
+        <tr><td>6月</td><td>🧅🧄 <b>玉ねぎ・にんにく収穫→乾燥</b>／🎍 ねぎを植え替え（溝に定植）／🫛 枝豆の2回目／支柱・誘引・わき芽かき</td></tr>
+        <tr><td>7月</td><td>🥔 じゃがいも収穫（梅雨の晴れ間に）／🍅🥒🍆 夏野菜の収穫ピーク／下旬に🥕 にんじんの種まき（暑さで発芽しにくいので、水やりと日よけ）</td></tr>
+        <tr><td>8月</td><td>🫛 枝豆の収穫ピーク／下旬：🥬 白菜の定植・🥬 キャベツ（秋どり）の定植・大根の種まき準備</td></tr>
+        <tr><td>9月</td><td>🥬 大根の種まき（上旬まで）／小松菜・青梗菜／🎋 <b>真菰の収穫スタート</b>／夏野菜の片付け</td></tr>
+        <tr><td>10月</td><td>🎋 真菰の収穫ピーク／🍠 さつまいも収穫（霜の前）／🧄🧅 にんにく・玉ねぎ（2年目）</td></tr>
+        <tr><td>11月</td><td>⛄ <b>雪の前の総収穫</b>：白菜・大根・にんじん・ねぎ・キャベツ → 土に埋める・新聞で包むなどして保存</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>🌱 品目別の戦略と準備</h2>
+      <p class="note">タップで開く。<b>科（グループ）</b>ごとに並べてあるのは、<b>同じ科を同じ畝で続けない（連作障害）</b>ため。来年の畝決めは「去年と違う科を入れる」が基本。</p>
+
+      <h3>🍆 ナス科（同じ場所は3〜4年あける）</h3>
+      <details class="crop"><summary>🍅 トマト</summary>
+        <p><b>時期：</b>5月中旬に定植 → 7〜9月に収穫。<br><b>戦略：</b>大玉は雨で割れやすいので、<b>ミニ・中玉が雪国の露地向き</b>。雨よけ（簡易屋根）があれば大玉も。<br><b>準備：</b>支柱（2m）・誘引ひも・黒マルチ。わき芽は全部かく。</p></details>
+      <details class="crop"><summary>🍆 なす</summary>
+        <p><b>時期：</b>5月中旬に定植 → 7〜10月に収穫。<br><b>戦略：</b><b>新潟はなすの作付面積が全国1位</b>の"なす県"。浅漬け向きの十全なす、焼きなすなど品種が豊富なので、<b>新潟の品種で作るとストーリーになる</b>。柏崎にも「みどりなす」がある（下の地元事例へ）。水と肥料をたくさん欲しがる。<br><b>準備：</b>支柱・敷きわら（乾燥防止）。7月末に「更新剪定」すると秋なすが穫れる。</p>
+        <p class="src">📎 <a href="https://niigata-kankou.or.jp/feature/nasu/" target="_blank" rel="noopener">新潟のなす特集（にいがた観光ナビ）</a>／<a href="https://www.pref.niigata.lg.jp/sec/syokuhin/shun07-nasu.html" target="_blank" rel="noopener">新潟県：旬の食材 なす</a></p></details>
+      <details class="crop"><summary>🫑 ピーマン</summary>
+        <p><b>時期：</b>5月中旬に定植 → 7〜10月に収穫。<br><b>戦略：</b>ほったらかしでも長く穫れる優等生。2〜3株で二人なら十分。<br><b>準備：</b>短い支柱・マルチ。</p></details>
+      <details class="crop"><summary>🥔 じゃがいも</summary>
+        <p><b>時期：</b>雪どけ後の4月中旬に植え付け → 7月上旬に収穫。<br><b>戦略：</b><b>保存の土台</b>。梅雨明け前の晴れが続く日に掘って、日陰で乾かしてから保存。<b>トマト・なすの跡地には植えない</b>（同じナス科）。<br><b>準備：</b>種芋（芽出しは3月下旬から室内で）・草木灰。</p></details>
+
+      <h3>🥒 ウリ科</h3>
+      <details class="crop"><summary>🥒 きゅうり</summary>
+        <p><b>時期：</b>5月中旬に定植 → 6月下旬〜8月に収穫。7月にもう一度種をまくと9月まで穫れる。<br><b>戦略：</b>柏崎には伝統野菜の<b>「刈羽節成（かりわふしなり）きゅうり」</b>がある（漬物向き・歯切れがよく独特の苦み）。曽地は中通りで、栽培の中心の西中通り地区とも近い。<b>種が手に入れば、地元の物語つきの1品</b>になる。<br><b>準備：</b>ネット・支柱。</p>
+        <p class="src">📎 <a href="https://www.pref.niigata.lg.jp/sec/syokuhin/tisan-dentouyasai-urirui.html" target="_blank" rel="noopener">新潟県：にいがたの伝統野菜（うり類）刈羽節成きゅうり</a>／<a href="https://www.pref.niigata.lg.jp/site/nogyo-navi/farms202310.html" target="_blank" rel="noopener">新潟県 農業ナビ：西中通りの取り組み</a></p></details>
+      <details class="crop"><summary>🎃 カボチャ</summary>
+        <p><b>時期：</b>5月中旬に定植 → 7月下旬〜8月に収穫。<br><b>戦略：</b>つるが広がるので<b>畝の端や畑のすみ</b>に置く。収穫後に2週間ほど乾かすと甘くなり、<b>冬まで保存できる</b>＝雪国の冬の食料。<br><b>準備：</b>敷きわら（実の下に）。</p></details>
+
+      <h3>🥬 アブラナ科（いちばん多い。畝をローテーション）</h3>
+      <details class="crop"><summary>🥬 キャベツ</summary>
+        <p><b>時期：</b>①春植え：4月に苗を植える → 6〜7月に収穫／②秋どり：8月に定植 → 11月に収穫。<br><b>戦略：</b>秋どりのキャベツは<b>雪の下に置いておくと甘くなる（雪下キャベツ）</b>。<br><b>準備：</b><b>防虫ネットは必須</b>（アオムシ・ヨトウ）。</p></details>
+      <details class="crop"><summary>🥬 白菜</summary>
+        <p><b>時期：</b>8月下旬に定植（または種まき）→ 11月に収穫。<br><b>戦略：</b>植え付けが遅れると結球しないので<b>8月中が勝負</b>。収穫したら新聞紙で包んで冷暗所に置けば冬じゅう食べられる。<br><b>準備：</b>防虫ネット。</p></details>
+      <details class="crop"><summary>🥬 大根</summary>
+        <p><b>時期：</b>8月下旬〜9月上旬に種まき → 10〜11月に収穫。<br><b>戦略：</b>粘土質だと根が曲がったり割れたりしやすいので、<b>深く耕して高畝</b>に。土に埋めておけば保存できる。干して切り干し大根にも。<br><b>準備：</b>防虫ネット（発芽直後が狙われる）。</p></details>
+      <details class="crop"><summary>🌿 小松菜・青梗菜・トウ菜</summary>
+        <p><b>時期：</b>4月か9〜10月に種まき → 1〜2ヶ月で収穫。トウ菜は雪の下で越冬して、<b>春に菜の花（とう）を収穫</b>。<br><b>戦略：</b>すき間を埋める名脇役。<b>端境期（ほかに野菜が少ない時期）</b>に助かる。<br><b>準備：</b>防虫ネット・不織布。</p></details>
+
+      <h3>🧅 ヒガンバナ科（ネギ類）</h3>
+      <details class="crop"><summary>🧅 玉ねぎ</summary>
+        <p><b>時期：</b>10月下旬〜11月上旬に定植 → 3月に追肥 → 6月に収穫。<br><b>戦略：</b>遅く植えると根が張る前に雪が来て、苗が浮いてしまう（凍上）。<b>11月上旬までに植える</b>。苗は鉛筆くらいの太さ。<b>中晩生の品種は保存がきく</b>。<br><b>準備：</b>苦土石灰（2週間前）・元肥（リン酸多め）・穴あき黒マルチ・高畝。</p></details>
+      <details class="crop"><summary>🧄 にんにく</summary>
+        <p><b>時期：</b>10月に植え付け（済み）→ 3月に追肥 → 6月に収穫。<br><b>戦略：</b>寒さに強い<b>寒地系の品種（ホワイト六片など）</b>が雪国向き。春に出てくる「にんにくの芽」も食べられる。</p></details>
+      <details class="crop"><summary>🎍 ねぎ</summary>
+        <p><b>時期：</b>4月に種まき → 6〜7月に溝へ植え替え → 土寄せをくり返す → 11〜12月に収穫。<br><b>戦略：</b>雪の下でも生きているので、<b>冬に少しずつ掘って使える</b>。土寄せで白い部分を長くする。<br><b>準備：</b>深い溝（30cm）・土寄せ用のくわ。</p></details>
+
+      <h3>🫛 マメ科・その他</h3>
+      <details class="crop"><summary>🫛 枝豆</summary>
+        <p><b>時期：</b>5〜6月に<b>2〜3回に分けて</b>種まき → 7〜9月に収穫。<br><b>戦略：</b>新潟は<b>全国有数の枝豆の産地</b>で、食べる量も多い枝豆県。早生・中生・晩生（茶豆）と品種をずらせば、夏じゅう穫れる。<b>マメ科は土を肥やす</b>ので、翌年の畝づくりにもいい。<br><b>準備：</b>鳥よけ（発芽直後のハト対策に不織布）。</p>
+        <p class="src">📎 <a href="https://www.pref.niigata.lg.jp/sec/nosanengei/yasai.html" target="_blank" rel="noopener">新潟県：園芸（野菜）の紹介</a></p></details>
+      <details class="crop"><summary>🥕 にんじん</summary>
+        <p><b>時期：</b>7月下旬〜8月上旬に種まき → 11月に収穫。一部を<b>雪の下に残して3〜4月に掘ると「雪下にんじん」</b>。<br><b>戦略：</b>津南町の雪下にんじんは、雪の下で越冬させて甘みを増す新潟のブランド。<b>曽地でも少量試す価値あり</b>（雪下野菜はロードマップにも載せてる構想）。発芽させるまでが勝負＝種まき後は乾かさない。<br><b>準備：</b>不織布やもみ殻で覆って乾燥を防ぐ。</p>
+        <p class="src">📎 <a href="https://niigata-kankou.or.jp/feature/yukishita_ninjin/" target="_blank" rel="noopener">津南の雪下にんじん（にいがた観光ナビ）</a>／<a href="https://www.maff.go.jp/j/shokusan/gi_act/register/0081/pdf/0081_register.pdf" target="_blank" rel="noopener">農水省 GI登録資料（雪下にんじん）</a></p></details>
+      <details class="crop"><summary>🍠 さつまいも</summary>
+        <p><b>時期：</b>5月下旬〜6月上旬につる苗を植える → 10月に収穫（霜の前）。<br><b>戦略：</b>やせた土でも育つ。<b>肥料をやりすぎると、つるばかり茂って芋ができない（つるぼけ）</b>。粘土質は苦手なので高畝で。収穫後、暖かい場所で寝かせると甘くなる。<br><b>準備：</b>黒マルチ（地温を上げる）。</p></details>
+      <details class="crop"><summary>🍃 大葉・🌿 バジル（シソ科）</summary>
+        <p><b>時期：</b>5月中旬に苗を植える → 6〜9月に収穫。<br><b>戦略：</b>2〜3株で食べきれないほど穫れる。<b>トマトの近くに植えるといい組み合わせ</b>（コンパニオンプランツ）。大葉はこぼれ種で翌年も生えてくる。</p></details>
+      <details class="crop"><summary>🥢 アスパラガス（多年草）</summary>
+        <p><b>時期：</b>4月に大苗（2年生の株）を定植 → その年は収穫しないで株を育てる → <b>3年目の春（4〜6月）から本格収穫</b>。<br><b>戦略：</b><b>一度植えると10年以上同じ場所</b>で穫れる。だから、<b>17畝の中ではなく、畑の端に専用の場所</b>を取るのがおすすめ。深く耕して、堆肥をたっぷり入れてから植える。秋に枯れた茎は年末に刈り取って処分（病気を残さない）。<br><b>準備：</b>大苗（冬のうちに予約）・堆肥多め。</p>
+        <p class="src">📎 <a href="https://www.pref.shiga.lg.jp/file/attachment/1049320.pdf" target="_blank" rel="noopener">滋賀県：アスパラガス栽培の手引き（PDF）</a>／<a href="https://www.pref.yamanashi.jp/documents/24738/asupara_4.pdf" target="_blank" rel="noopener">山梨県：アスパラガス露地栽培（PDF）</a>　※どちらも雪国ではないので時期は遅めに読みかえる</p></details>
+
+      <h3>🎋 水田</h3>
+      <details class="crop" open><summary>🎋 真菰（マコモダケ）</summary>
+        <p><b>時期：</b>4〜5月に株分けした苗を水田に植える → 夏は水を切らさない → <b>9月中旬〜10月に収穫</b>。<br><b>戦略：</b><b>柏崎の中山間地・矢田地区はマコモタケの栽培がさかん</b>で、柏崎の地場特産品として、ふるさと納税の返礼品にもなっている（＝大日さんの地元！）。JA柏崎の直売所「愛菜館」でもおすすめ品として扱われている。つまり<b>すでに地元に「売り場」「食べる人」「教えてくれる人」がそろっている</b>。<b>新しく産地を作るより、矢田の先輩たちに習うのが近道</b>。地元の食材として食育で扱えれば、みほさんのやりたいことにもつながる。<br><b>準備：</b>株の入手先（矢田の生産者さんに相談）・水利のある田んぼ。</p>
+        <p class="src">📎 <a href="https://furunavi.jp/product_detail.aspx?pid=392059" target="_blank" rel="noopener">ふるなび：ヤタらうんめぇ マコモタケ（柏崎市・矢田地区）</a>／<a href="https://niigata-kankou.or.jp/spot/detail_10143.html" target="_blank" rel="noopener">にいがた観光ナビ：JA柏崎 愛菜館</a>／<a href="https://www.maff.go.jp/j/nousin/noukan/nougyo_kinou/attach/pdf/tiikisinko-11.pdf" target="_blank" rel="noopener">農水省：集落営農×マコモタケの事例（PDF）</a></p></details>
+    </div>
+
+    <div class="card">
+      <h2>📍 柏崎・刈羽の地元ネタと使える制度</h2>
+      <ul class="local">
+        <li><b>柏崎伝統野菜（6品目）</b>：刈羽節成きゅうり・仙人菊・みどりなす・与板菜・黒姫人参・新道いも。柏崎市担い手総合支援協議会の認定。</li>
+        <li><b>💴 柏崎伝統野菜等作付拡大支援事業奨励金</b>：上の伝統野菜などを<b>出荷目的で作付けすると、1アールあたり5,000円</b>。<b>マコモタケのような「柏崎中心で作られる希少な農産物」も、市長が認めれば対象になりうる</b>。公募期間は2024/9/9〜2027/3/31（随時受付・事前相談）。窓口＝柏崎市 農林水産課 農業振興係（0257-21-2295）。<br>⚠️ 「出荷目的」が条件なので、<b>協力隊の期間（販売しない方針）は対象外の可能性が高い</b>。独立後の制度として覚えておく。期間延長があるかも要確認。</li>
+        <li><b>みどりなす</b>：柏崎産の「甘うま野菜 緑なす」が野菜ソムリエサミット（2022年9月）で金賞（生産者：アグリーホンマ）。</li>
+        <li><b>高柳の棚田</b>：米と一緒に「磯之辺ニンジン」「磯之辺トマト」など、野菜を作りながら棚田を守っている事例。曽地の棚田ストーリーの参考に。</li>
+      </ul>
+      <p class="src">📎 <a href="https://biz.stayway.jp/?p=12513" target="_blank" rel="noopener">補助金ポータル：柏崎伝統野菜等作付拡大支援事業奨励金</a>（※民間のまとめサイト。正式な要綱は市で確認）／<a href="https://vege-fru.com/doc/news/22/summit_09.pdf" target="_blank" rel="noopener">野菜ソムリエサミット2022年9月（みどりなす金賞）PDF</a>／<a href="https://www.maff.go.jp/j/nousin/tanada/attach/pdf/nintei-36.pdf" target="_blank" rel="noopener">農水省：つなぐ棚田遺産（高柳）PDF</a>／<a href="https://www.pref.niigata.lg.jp/site/nogyo-navi/agri-improve-kashiwazaki.html" target="_blank" rel="noopener">新潟県：柏崎農業普及指導センターの取り組み</a></p>
+      <p class="note">🔲 <b>10/19の市役所MTGで聞けそうなこと</b>：①奨励金は今も受付中か・独立後に使えるか ②マコモタケは奨励金の対象になるか ③刈羽節成きゅうり・みどりなすの種の入手先 ④矢田のマコモ生産者さんを紹介してもらえるか</p>
     </div>
   </section>
 
@@ -447,7 +550,7 @@ var GROUPS={
 var SPECIAL={ path:{label:'通路・畦',color:'#e4dccb'}, empty:{label:'空き（消す）',color:'#f4f1e9'} };
 /* GDD（積算温度）品目グループ別の初期値：base=基準温度℃ / target=収穫までの目安積算℃ */
 var GDD_DEF={summer:{base:10,target:1000},bean:{base:8,target:700},winter:{base:5,target:1000},leaf:{base:5,target:450},base:{base:7,target:1100},makomo:{base:10,target:1600}};
-var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🎍',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾',toh:'🥬',shungiku:'🌿',lettuce:'🥗',garlic:'🧄'}; /* ねぎ=🎍（🌱は発芽ステージと衝突するため変更・みほ指摘2026-07-04） */
+var EMOJI={pota:'🥔',sweet:'🍠',onion:'🧅',leek:'🎍',tomato:'🍅',eggplant:'🍆',cuke:'🥒',pepper:'🫑',edamame:'🫛',daikon:'🥬',carrot:'🥕',napa:'🥬',komatsu:'🌿',bokchoy:'🌿',basil:'🌿',makomo:'🎋',rice:'🌾',toh:'🥬',shungiku:'🌿',lettuce:'🥗',garlic:'🧄',asparagus:'🥢',shiso:'🍃',pumpkin:'🎃',cabbage:'🥬'}; /* ねぎ=🎍（🌱は発芽ステージと衝突するため変更・みほ指摘2026-07-04） */
 function emo(id){return EMOJI[id]||'🌱';}
 var STAGES=[{e:'🫘',l:'種・植付'},{e:'🌱',l:'発芽'},{e:'🪴',l:'苗'},{e:'🌿',l:'生育'},{e:'🌼',l:'結実'},{e:null,l:'収穫期'},{e:'✅',l:'収穫済'}];
 
@@ -457,26 +560,30 @@ var DEFAULT={
   meta:{updated:''},
   geo:{lat:37.37,lon:138.56,name:'柏崎（曽地あたり）'},
   items:[
-    {id:'pota',name:'じゃがいも',group:'base',buy:'種芋 約3.5kg',seed:2500,sch:{2:'p',3:'p',4:'g',5:'h',6:'h'}},
-    {id:'sweet',name:'さつまいも',group:'base',buy:'つる苗 約18本',seed:1000,sch:{4:'p',5:'g',6:'g',7:'g',8:'g',9:'h'}},
-    {id:'onion',name:'玉ねぎ',group:'base',buy:'苗 約120本(2-3束)',seed:1500,sch:{10:'p',3:'g',4:'g',5:'h'}},
-    {id:'leek',name:'ねぎ',group:'base',buy:'種 1袋',seed:350,sch:{3:'p',4:'g',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}},
+    {id:'pota',name:'じゃがいも',group:'base',buy:'種芋 約3.5kg',seed:2500,sch:{3:'p',4:'g',5:'g',6:'h'}},
+    {id:'sweet',name:'さつまいも',group:'base',buy:'つる苗 約18本',seed:1000,sch:{4:'p',5:'p',6:'g',7:'g',8:'g',9:'h'}},
+    {id:'onion',name:'玉ねぎ',group:'base',buy:'苗 約120本(2-3束)',seed:1500,sch:{2:'g',3:'g',4:'g',5:'h',9:'p',10:'p'}},
+    {id:'leek',name:'ねぎ',group:'base',buy:'種 1袋',seed:350,sch:{3:'p',4:'g',5:'p',6:'g',7:'g',8:'g',9:'g',10:'h',11:'h'}},
     {id:'tomato',name:'トマト',group:'summer',buy:'苗 4株(固定種)',seed:1200,sch:{4:'p',5:'g',6:'h',7:'h',8:'h'}},
     {id:'eggplant',name:'なす',group:'summer',buy:'苗 3株',seed:750,sch:{4:'p',5:'g',6:'h',7:'h',8:'h',9:'h'}},
-    {id:'cuke',name:'きゅうり',group:'summer',buy:'苗 3株',seed:700,sch:{4:'p',5:'g',6:'h',7:'h'}},
+    {id:'cuke',name:'きゅうり',group:'summer',buy:'苗 3株',seed:700,sch:{4:'p',5:'h',6:'h',7:'h'}},
     {id:'pepper',name:'ピーマン',group:'summer',buy:'苗 3株',seed:700,sch:{4:'p',5:'g',6:'h',7:'h',8:'h',9:'h'}},
-    {id:'edamame',name:'枝豆',group:'bean',buy:'種 2袋',seed:800,sch:{3:'p',4:'p',5:'g',6:'h',7:'h'}},
-    {id:'daikon',name:'大根',group:'winter',buy:'種 1袋',seed:400,sch:{7:'p',8:'g',9:'g',10:'h'}},
-    {id:'carrot',name:'にんじん',group:'winter',buy:'種 1袋',seed:400,sch:{6:'p',7:'g',8:'g',9:'g',10:'h'}},
+    {id:'edamame',name:'枝豆',group:'bean',buy:'種 2袋',seed:800,sch:{4:'p',5:'p',6:'h',7:'h',8:'h'}},
+    {id:'daikon',name:'大根',group:'winter',buy:'種 1袋',seed:400,sch:{7:'p',8:'p',9:'h',10:'h'}},
+    {id:'carrot',name:'にんじん',group:'winter',buy:'種 1袋',seed:400,sch:{2:'h',6:'p',7:'p',8:'g',9:'g',10:'h'}},
     {id:'napa',name:'白菜',group:'winter',buy:'種 1袋',seed:400,sch:{7:'p',8:'g',9:'g',10:'h'}},
-    {id:'komatsu',name:'小松菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
-    {id:'bokchoy',name:'青梗菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h'}},
+    {id:'komatsu',name:'小松菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h',10:'h'}},
+    {id:'bokchoy',name:'青梗菜',group:'leaf',buy:'種 1袋',seed:300,sch:{3:'p',4:'h',5:'h',8:'p',9:'h',10:'h'}},
     {id:'basil',name:'バジル',group:'leaf',buy:'種 1袋',seed:300,sch:{4:'p',5:'g',6:'h',7:'h',8:'h'}},
-    {id:'toh',name:'トウ菜',group:'leaf',buy:'種 1袋',seed:300,sch:{10:'p',11:'g',12:'h',3:'h',4:'h'}},
-    {id:'shungiku',name:'春菊',group:'leaf',buy:'種 1袋',seed:300,sch:{10:'p',11:'h',12:'h'}},
-    {id:'lettuce',name:'リーフレタス',group:'leaf',buy:'種 1袋',seed:300,sch:{10:'p',11:'h',12:'h'}},
-    {id:'garlic',name:'にんにく',group:'base',buy:'種球',seed:1000,sch:{10:'p',11:'g',3:'g',4:'g',5:'g',6:'h'}},
-    {id:'makomo',name:'真菰',group:'makomo',buy:'株苗 3〜5株',seed:4000,sch:{3:'p',4:'p',5:'g',6:'g',7:'g',8:'h',9:'h',10:'h'}},
+    {id:'toh',name:'トウ菜',group:'leaf',buy:'種 1袋',seed:300,sch:{2:'h',3:'h',8:'p',9:'p',10:'h',11:'h'}},
+    {id:'shungiku',name:'春菊',group:'leaf',buy:'種 1袋',seed:300,sch:{8:'p',9:'p',10:'h',11:'h'}},
+    {id:'lettuce',name:'リーフレタス',group:'leaf',buy:'種 1袋',seed:300,sch:{8:'p',9:'p',10:'h',11:'h'}},
+    {id:'garlic',name:'にんにく',group:'base',buy:'種球',seed:1000,sch:{2:'g',3:'g',4:'g',5:'h',9:'p',10:'g'}},
+    {id:'asparagus',name:'アスパラガス',group:'base',buy:'大苗 5株',seed:3000,sch:{3:'p',4:'g',5:'g',6:'g',7:'g',8:'g',9:'g'}},
+    {id:'shiso',name:'大葉',group:'leaf',buy:'苗 2株',seed:300,sch:{4:'p',5:'h',6:'h',7:'h',8:'h'}},
+    {id:'pumpkin',name:'カボチャ',group:'summer',buy:'苗 2株',seed:600,sch:{4:'p',5:'g',6:'h',7:'h'}},
+    {id:'cabbage',name:'キャベツ',group:'winter',buy:'苗 8株×2回',seed:800,sch:{3:'p',4:'g',5:'h',6:'h',7:'p',8:'g',9:'g',10:'h'}},
+    {id:'makomo',name:'真菰',group:'makomo',buy:'株苗 3〜5株',seed:4000,sch:{3:'p',4:'p',5:'g',6:'g',7:'g',8:'h',9:'h'}},
     riceItem()
   ],
   tools:[
